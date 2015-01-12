@@ -23,6 +23,8 @@ namespace POESKillTree.SkillTreeFiles
 
         private NodeHighlighter _nodeHighlighter = new NodeHighlighter();
 
+        private Equalizer _equalizer;
+
         public DrawingVisual picActiveLinks;
         public DrawingVisual picBackground;
         public DrawingVisual picFaces;
@@ -223,7 +225,7 @@ namespace POESKillTree.SkillTreeFiles
 
         private void DrawLinkBackgroundLayer(List<ushort[]> links)
         {
-            picLinks = new DrawingVisual();
+            
             var pen2 = new Pen(Brushes.DarkSlateGray, 20f);
             using (DrawingContext dc = picLinks.RenderOpen())
             {
@@ -348,6 +350,17 @@ namespace POESKillTree.SkillTreeFiles
                     DrawConnection(dc, pen2, n1, n2);
                 }
             }
+
+            RedrawTree();
+        }
+
+        public void RedrawTree()
+        {
+            DrawNodeSurround();
+            DrawNodeBaseSurround();
+            DrawSkillIconLayer();
+            DrawBackgroundLayer();
+            DrawLinkBackgroundLayer(links);
         }
 
         public void DrawRefundPreview(HashSet<ushort> nodes)
@@ -442,6 +455,8 @@ namespace POESKillTree.SkillTreeFiles
                 (new KeyValuePair<Rect, ImageBrush>(new Rect(0, 0, bi2.PixelWidth, bi2.PixelHeight),
                     new ImageBrush(bi2))));
             picFaces = new DrawingVisual();
+
+            picLinks = new DrawingVisual();
         }
 
         private void InitNodeSurround()
