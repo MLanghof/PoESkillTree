@@ -175,7 +175,6 @@ namespace POESKillTree.SkillTreeFiles.SteinerTrees
             //BitArray initialSolution = null)
         {
             this.populationSize = populationSize;
-            annealingFactor = 1.0 - (1.0 / maxGeneration);
 
             /// These assignments (based on the defaults) look paradoxical here,
             /// but they'll be adjusted by evaluating individuals before ever being
@@ -193,6 +192,9 @@ namespace POESKillTree.SkillTreeFiles.SteinerTrees
             /// TODO: Investigate the influence of this, as well as possible
             /// (automatic) parametrizations.
             temperature = 6.0;
+            /// With default settings, this means the end temperature will be
+            /// roughly 1/e times the start temperature.
+            annealingFactor = 1.0 - (1.0 / maxGeneration);
         }
 
         /// <summary>

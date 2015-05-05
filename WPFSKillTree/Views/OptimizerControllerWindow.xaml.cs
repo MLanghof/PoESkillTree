@@ -68,7 +68,7 @@ namespace POESKillTree.Views
         void initializationWorker_DoWork(object sender, DoWorkEventArgs e)
         {
             // This is also deferred to a background task as it might take a while.
-            steinerSolver.InitializeSolver(targetNodes);
+            steinerSolver.InitializeSolver(targetNodes, populationModifier: 1.3);
         }
 
         void initializationWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -104,6 +104,9 @@ namespace POESKillTree.Views
 
         void solutionWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
+            if (isCanceling) // Don't do anything if the dialog is already closed.
+                return;
+
             progressBar.Value = e.ProgressPercentage;
             lblProgressText.Content = e.ProgressPercentage.ToString() + "/" + maxSteps;
             bestSoFar = (HashSet<ushort>)(e.UserState);
@@ -111,6 +114,7 @@ namespace POESKillTree.Views
                 " additional points spent.";
             tree.HighlightedNodes = new HashSet<ushort>(bestSoFar.Concat(tree.SkilledNodes));
             tree.DrawNodeBaseSurroundHighlight();
+            tree.DrawHighlights(tree._nodeHighlighter);
         }
 
         void solutionWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)

@@ -929,7 +929,7 @@ namespace POESKillTree.SkillTreeFiles
 
             /// These are used for visualization of the simulation progress, so
             /// they're saved for restoring them afterwards.
-            var savedHighlights = HighlightedNodes;
+            var savedHighlights = (HighlightedNodes == null ? null : new HashSet<ushort>(HighlightedNodes));
 
             OptimizerControllerWindow optimizerDialog = new OptimizerControllerWindow(this, targetNodeIds);
             optimizerDialog.Owner = MainWindow;
