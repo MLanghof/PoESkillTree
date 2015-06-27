@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using POESKillTree.Localization;
+using POESKillTree.Utils;
 using POESKillTree.Views;
 using System;
 using System.Collections.Generic;
@@ -36,6 +38,10 @@ namespace POESKillTree.SkillTreeFiles
         public static readonly float DexPerEvas = 5; //%
         private const string TreeAddress = "http://www.pathofexile.com/passive-skill-tree/";
 
+        // The absolute path of Assets folder (contains trailing directory separator).
+        public static string AssetsFolderPath;
+        // The absolute path of Data folder (contains trailing directory separator).
+        public static string DataFolderPath;
 
         public static readonly Dictionary<string, float> BaseAttributes = new Dictionary<string, float>
         {
@@ -179,7 +185,7 @@ namespace POESKillTree.SkillTreeFiles
 
         private static readonly Dictionary<string, Asset> _assets = new Dictionary<string, Asset>();
 
-        private static readonly Dictionary<string, int> _rootNodeClassDictionary = new Dictionary<string, int>();
+        private static Dictionary<string, int> _rootNodeClassDictionary = new Dictionary<string, int>();
 
         private static readonly List<ushort[]> _links = new List<ushort[]>();
 
@@ -311,6 +317,9 @@ namespace POESKillTree.SkillTreeFiles
             if (!_Initialized)
             {
                 _Skillnodes = new Dictionary<ushort, SkillNode>();
+                _rootNodeClassDictionary = new Dictionary<string, int>();
+                _startNodeDictionary = new Dictionary<int, int>();
+
                 foreach (Node nd in inTree.nodes)
                 {
                     _Skillnodes.Add(nd.id, new SkillNode
@@ -333,10 +342,16 @@ namespace POESKillTree.SkillTreeFiles
                     });
                     if (_rootNodeList.Contains(nd.id))
                     {
-                        _rootNodeClassDictionary.Add(nd.dn.ToString().ToUpper(), nd.id);
+                        if (!_rootNodeClassDictionary.ContainsKey(nd.dn.ToString().ToUpper()))
+                        {
+                            _rootNodeClassDictionary.Add(nd.dn.ToString().ToUpper(), nd.id);
+                        }
                         foreach (int linkedNode in nd.ot)
                         {
-                            _startNodeDictionary.Add(linkedNode, nd.id);
+                            if (!_startNodeDictionary.ContainsKey(nd.id))
+                            {
+                                _startNodeDictionary.Add(linkedNode, nd.id);
+                            }
                         }
                     }
                     foreach (int node in nd.ot)
@@ -568,22 +583,14 @@ namespace POESKillTree.SkillTreeFiles
         public static SkillTree CreateSkillTree(StartLoadingWindow start = null, UpdateLoadingWindow update = null,
             CloseLoadingWindow finish = null)
         {
+            AssetsFolderPath = AppData.GetFolder(Path.Combine("Data", "Assets"), true);
+            DataFolderPath = AppData.GetFolder("Data", true);
+
+            string skillTreeFile = DataFolderPath + "Skilltree.txt";
             string skilltreeobj = "";
-            if (Directory.Exists("Data"))
+            if (File.Exists(skillTreeFile))
             {
-                if (File.Exists("Data\\Skilltree.txt"))
-                {
-                    skilltreeobj = File.ReadAllText("Data\\Skilltree.txt");
-                }
-                if (!File.Exists("Data\\Assets"))
-                {
-                    Directory.CreateDirectory("Data\\Assets");
-                }
-            }
-            else
-            {
-                Directory.CreateDirectory("Data");
-                Directory.CreateDirectory("Data\\Assets");
+                skilltreeobj = File.ReadAllText(skillTreeFile);
             }
 
             bool displayProgress = false;
@@ -599,7 +606,7 @@ namespace POESKillTree.SkillTreeFiles
                 var regex = new Regex("var passiveSkillTreeData.*");
                 skilltreeobj = regex.Match(code).Value.Replace("root", "main").Replace("\\/", "/");
                 skilltreeobj = skilltreeobj.Substring(27, skilltreeobj.Length - 27 - 2) + "";
-                File.WriteAllText("Data\\Skilltree.txt", skilltreeobj);
+                File.WriteAllText(skillTreeFile, skilltreeobj);
             }
 
             if (displayProgress)
@@ -923,13 +930,13 @@ namespace POESKillTree.SkillTreeFiles
         {
             if (targetNodeIds.Count == 0)
             {
-                MessageBox.Show("Please highlight some non-skilled nodes first!");
+                Popup.Info(L10n.Message("Please highlight non-skilled nodes by right-clicking them."));
                 return;
             }
 
             /// These are used for visualization of the simulation progress, so
             /// they're saved for restoring them afterwards.
-            var savedHighlights = (HighlightedNodes == null ? null : new HashSet<ushort>(HighlightedNodes));
+            var savedHighlights = HighlightedNodes;
 
             OptimizerControllerWindow optimizerDialog = new OptimizerControllerWindow(this, targetNodeIds);
             optimizerDialog.Owner = MainWindow;

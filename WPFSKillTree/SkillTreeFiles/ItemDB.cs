@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Serialization;
 using POESKillTree.Model;
+using POESKillTree.Utils;
 using POESKillTree.ViewModels;
 using POESKillTree.ViewModels.ItemAttribute;
 using AttackSkill = POESKillTree.SkillTreeFiles.Compute.AttackSkill;
@@ -163,10 +164,26 @@ namespace POESKillTree.SkillTreeFiles
                     ValueAt with = (ValueAt)Values.Find(v => v is ValueAt && ((ValueAt)v).Level == merge.Level && ((ValueAt)v).Quality == merge.Quality);
                     if (with == null)
                     {
-                        // Value with no level nor quality specified replaces all values.
-                        if (!merge.LevelSpecified && !merge.QualitySpecified)
+                        if (merge.LevelSpecified)
+                        {
+                            // No need to add ValueAt, if there is ValueForLevelRange covering specified Level with same Text.
+                            ValueForLevelRange covers = (ValueForLevelRange)Values.Find(v => v is ValueForLevelRange && ((ValueForLevelRange)v).From <= merge.Level && ((ValueForLevelRange)v).To >= merge.Level && v.Text == merge.Text);
+                            if (covers == null)
+                                Values.Add(merge);
+                        }
+                        else if (merge.QualitySpecified)
+                        {
+                            // No need to add ValueAt, if there is ValueForQualityRange covering specified Quality with same Text.
+                            ValueForQualityRange covers = (ValueForQualityRange)Values.Find(v => v is ValueForQualityRange && ((ValueForQualityRange)v).From <= merge.Quality && ((ValueForQualityRange)v).To >= merge.Quality && v.Text == merge.Text);
+                            if (covers == null)
+                                Values.Add(merge);
+                        }
+                        else
+                        {
+                            // Value with no level nor quality specified replaces all values.
                             Values.Clear();
-                        Values.Add(merge);
+                            Values.Add(merge);
+                        }
                     }
                     else
                         with.Text = merge.Text;
@@ -492,6 +509,11 @@ namespace POESKillTree.SkillTreeFiles
             public bool StrikesWithBothWeapons = false;
             [XmlIgnore]
             public bool StrikesWithBothWeaponsSpecified { get { return StrikesWithBothWeapons; } }
+            // Defines whether skill can be used unarmed.
+            [XmlAttribute]
+            public bool Unarmed = false;
+            [XmlIgnore]
+            public bool UnarmedSpecified { get { return Unarmed; } }
 
             // Returns all attributes of gem with defined values for specified level.
             internal AttributeSet AttributesAtLevel(int level)
@@ -1322,7 +1344,7 @@ namespace POESKillTree.SkillTreeFiles
         {
             GemIndex.Clear();
 
-            if (DB.Gems != null)
+            if (DB != null && DB.Gems != null)
             {
                 foreach (Gem gem in DB.Gems)
                 {
@@ -1355,10 +1377,12 @@ namespace POESKillTree.SkillTreeFiles
         // Loads items from XML file.
         public static void Load(string file, bool index = false)
         {
-            if (File.Exists(file))
+            string filePath = AppData.GetFolder(true) + file;
+
+            if (File.Exists(filePath))
             {
                 var serializer = new XmlSerializer(typeof(ItemDB));
-                var reader = new StreamReader(file);
+                var reader = new StreamReader(filePath);
                 DB = (ItemDB)serializer.Deserialize(reader);
                 reader.Close();
 
@@ -1369,10 +1393,12 @@ namespace POESKillTree.SkillTreeFiles
         // Merges items from XML file.
         public static void Merge(string file)
         {
-            if (File.Exists(file))
+            string filePath = AppData.GetFolder(true) + file;
+
+            if (File.Exists(filePath))
             {
                 var serializer = new XmlSerializer(typeof(ItemDB));
-                var reader = new StreamReader(file);
+                var reader = new StreamReader(filePath);
                 ItemDB merge = (ItemDB)serializer.Deserialize(reader);
                 reader.Close();
 
@@ -1437,6 +1463,10 @@ namespace POESKillTree.SkillTreeFiles
                 // Include form.
                 if (entry.IncludeForm != DamageForm.Any)
                     nature.Form |= entry.IncludeForm;
+
+                // Unarmed.
+                if (entry.Unarmed)
+                    nature.WeaponType |= WeaponType.Unarmed;
             }
 
             return nature;
@@ -1460,7 +1490,7 @@ namespace POESKillTree.SkillTreeFiles
             XmlWriterSettings settings = new XmlWriterSettings();
             settings.Indent = true;
             settings.NewLineChars = "\n";
-            XmlWriter writer = XmlTextWriter.Create(file, settings);
+            XmlWriter writer = XmlTextWriter.Create(AppData.GetFolder(true) + file, settings);
             serializer.Serialize(writer, DB);
             writer.Close();
         }
