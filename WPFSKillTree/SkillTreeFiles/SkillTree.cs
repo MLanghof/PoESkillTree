@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using POESKillTree.Localization;
+using POESKillTree.Utils;
 using POESKillTree.Views;
 using System;
 using System.Collections.Generic;
@@ -22,7 +24,7 @@ namespace POESKillTree.SkillTreeFiles
 
         public delegate void CloseLoadingWindow();
 
-        public delegate void StartLoadingWindow();
+        public delegate void StartLoadingWindow(string infoText);
 
         public static readonly float LifePerLevel = 12;
         public static readonly float AccPerLevel = 2;
@@ -34,8 +36,12 @@ namespace POESKillTree.SkillTreeFiles
         public static readonly float StrPerED = 5; //%
         public static readonly float DexPerAcc = 0.5f;
         public static readonly float DexPerEvas = 5; //%
-        private const string TreeAddress = "http://www.pathofexile.com/passive-skill-tree/";
+        public static readonly string TreeAddress = "https://www.pathofexile.com/passive-skill-tree/";
 
+        // The absolute path of Assets folder (contains trailing directory separator).
+        public static string AssetsFolderPath;
+        // The absolute path of Data folder (contains trailing directory separator).
+        public static string DataFolderPath;
 
         public static readonly Dictionary<string, float> BaseAttributes = new Dictionary<string, float>
         {
@@ -47,8 +53,9 @@ namespace POESKillTree.SkillTreeFiles
             {"+# Maximum Power Charge", 3},
             {"#% Additional Elemental Resistance per Endurance Charge", 4},
             {"#% Physical Damage Reduction per Endurance Charge", 4},
-            {"#% Attack Speed Increase per Frenzy Charge", 5},
-            {"#% Cast Speed Increase per Frenzy Charge", 5},
+            {"#% Attack Speed Increase per Frenzy Charge", 4},
+            {"#% Cast Speed Increase per Frenzy Charge", 4},
+            {"#% More Damage per Frenzy Charge", 4},
             {"#% Critical Strike Chance Increase per Power Charge", 50},
         };
 
@@ -76,13 +83,13 @@ namespace POESKillTree.SkillTreeFiles
 
         public static readonly List<string> CharName = new List<string>
         {
-            "SEVEN",
-            "MARAUDER",
-            "RANGER",
-            "WITCH",
-            "DUELIST",
-            "TEMPLAR",
-            "SIX"
+            CharacterNames.Scion,
+            CharacterNames.Marauder,
+            CharacterNames.Ranger,
+            CharacterNames.Witch,
+            CharacterNames.Duelist,
+            CharacterNames.Templar,
+            CharacterNames.Shadow
         };
 
         public static readonly List<string> FaceNames = new List<string>
@@ -100,14 +107,16 @@ namespace POESKillTree.SkillTreeFiles
         {
             {"normal", "PSSkillFrame"},
             {"notable", "NotableFrameUnallocated"},
-            {"keystone", "KeystoneFrameUnallocated"}
+            {"keystone", "KeystoneFrameUnallocated"},
+            {"jewel", "JewelFrameUnallocated"}
         };
 
         public static readonly Dictionary<string, string> NodeBackgroundsActive = new Dictionary<string, string>
         {
             {"normal", "PSSkillFrameActive"},
             {"notable", "NotableFrameAllocated"},
-            {"keystone", "KeystoneFrameAllocated"}
+            {"keystone", "KeystoneFrameAllocated"},
+            {"jewel", "JewelFrameAllocated"}
         };
 
         private static SkillIcons _IconActiveSkills;
@@ -179,7 +188,7 @@ namespace POESKillTree.SkillTreeFiles
 
         private static readonly Dictionary<string, Asset> _assets = new Dictionary<string, Asset>();
 
-        private static readonly Dictionary<string, int> _rootNodeClassDictionary = new Dictionary<string, int>();
+        private static Dictionary<string, int> _rootNodeClassDictionary = new Dictionary<string, int>();
 
         private static readonly List<ushort[]> _links = new List<ushort[]>();
 
@@ -211,8 +220,8 @@ namespace POESKillTree.SkillTreeFiles
                         args.ErrorContext.Handled = true;
                     }
                 };
-
-                inTree = JsonConvert.DeserializeObject<PoESkillTree>(treestring.Replace("Additional ", ""), jss);
+                
+                inTree = JsonConvert.DeserializeObject<PoESkillTree>(treestring, jss);
             }
             int qindex = 0;
 
@@ -311,13 +320,16 @@ namespace POESKillTree.SkillTreeFiles
             if (!_Initialized)
             {
                 _Skillnodes = new Dictionary<ushort, SkillNode>();
+                _rootNodeClassDictionary = new Dictionary<string, int>();
+                _startNodeDictionary = new Dictionary<int, int>();
+
                 foreach (Node nd in inTree.nodes)
                 {
                     _Skillnodes.Add(nd.id, new SkillNode
                     {
                         Id = nd.id,
                         Name = nd.dn,
-                        attributes = nd.sd,
+                        attributes = nd.dn.Contains("Jewel Socket") ? new string[1] { "+1 Jewel Socket" } : SplitMultilineAttributes(nd.sd),
                         Orbit = nd.o,
                         OrbitIndex = nd.oidx,
                         Icon = nd.icon,
@@ -327,16 +339,23 @@ namespace POESKillTree.SkillTreeFiles
                         Ia = nd.ia,
                         IsKeyStone = nd.ks,
                         IsNotable = nd.not,
+                        IsJewelSocket = nd.dn.Contains("Jewel Socket"),
                         Sa = nd.sa,
                         IsMastery = nd.m,
                         Spc = nd.spc.Count() > 0 ? (int?)nd.spc[0] : null
                     });
                     if (_rootNodeList.Contains(nd.id))
                     {
-                        _rootNodeClassDictionary.Add(nd.dn.ToString().ToUpper(), nd.id);
+                        if (!_rootNodeClassDictionary.ContainsKey(nd.dn.ToString().ToUpperInvariant()))
+                        {
+                            _rootNodeClassDictionary.Add(nd.dn.ToString().ToUpperInvariant(), nd.id);
+                        }
                         foreach (int linkedNode in nd.ot)
                         {
-                            _startNodeDictionary.Add(linkedNode, nd.id);
+                            if (!_startNodeDictionary.ContainsKey(nd.id))
+                            {
+                                _startNodeDictionary.Add(linkedNode, nd.id);
+                            }
                         }
                     }
                     foreach (int node in nd.ot)
@@ -401,8 +420,9 @@ namespace POESKillTree.SkillTreeFiles
 
             if (!_Initialized)
             {
-                _TRect = new Rect2D(new Vector2D(inTree.min_x * 1.1, inTree.min_y * 1.1),
-                    new Vector2D(inTree.max_x * 1.1, inTree.max_y * 1.1));
+                const int padding = 500; //This is to account for jewel range circles. Might need to find a better way to do it.
+                _TRect = new Rect2D(new Vector2D(inTree.min_x * 1.1 - padding, inTree.min_y * 1.1 - padding),
+                    new Vector2D(inTree.max_x * 1.1 + padding, inTree.max_y * 1.1 + padding));
             }
 
 
@@ -463,7 +483,7 @@ namespace POESKillTree.SkillTreeFiles
                 _chartype = value;
                 SkilledNodes.Clear();
                 KeyValuePair<ushort, SkillNode> node =
-                    Skillnodes.First(nd => nd.Value.Name.ToUpper() == CharName[_chartype]);
+                    Skillnodes.First(nd => nd.Value.Name.ToUpperInvariant() == CharName[_chartype]);
                 SkilledNodes.Add(node.Value.Id);
                 UpdateAvailNodes();
                 DrawFaces();
@@ -568,22 +588,14 @@ namespace POESKillTree.SkillTreeFiles
         public static SkillTree CreateSkillTree(StartLoadingWindow start = null, UpdateLoadingWindow update = null,
             CloseLoadingWindow finish = null)
         {
+            AssetsFolderPath = AppData.GetFolder(Path.Combine("Data", "Assets"), true);
+            DataFolderPath = AppData.GetFolder("Data", true);
+
+            string skillTreeFile = DataFolderPath + "Skilltree.txt";
             string skilltreeobj = "";
-            if (Directory.Exists("Data"))
+            if (File.Exists(skillTreeFile))
             {
-                if (File.Exists("Data\\Skilltree.txt"))
-                {
-                    skilltreeobj = File.ReadAllText("Data\\Skilltree.txt");
-                }
-                if (!File.Exists("Data\\Assets"))
-                {
-                    Directory.CreateDirectory("Data\\Assets");
-                }
-            }
-            else
-            {
-                Directory.CreateDirectory("Data");
-                Directory.CreateDirectory("Data\\Assets");
+                skilltreeobj = File.ReadAllText(skillTreeFile);
             }
 
             bool displayProgress = false;
@@ -591,15 +603,15 @@ namespace POESKillTree.SkillTreeFiles
             {
                 displayProgress = (start != null && update != null && finish != null);
                 if (displayProgress)
-                    start();
-                string uriString = "http://www.pathofexile.com/passive-skill-tree/";
+                    start(L10n.Message("Downloading Skill tree assets"));
+                string uriString = SkillTree.TreeAddress;
                 var req = (HttpWebRequest)WebRequest.Create(uriString);
                 var resp = (HttpWebResponse)req.GetResponse();
                 string code = new StreamReader(resp.GetResponseStream()).ReadToEnd();
                 var regex = new Regex("var passiveSkillTreeData.*");
-                skilltreeobj = regex.Match(code).Value.Replace("root", "main").Replace("\\/", "/");
-                skilltreeobj = skilltreeobj.Substring(27, skilltreeobj.Length - 27 - 2) + "";
-                File.WriteAllText("Data\\Skilltree.txt", skilltreeobj);
+                skilltreeobj = regex.Match(code).Value.Replace("\\/", "/");
+                skilltreeobj = skilltreeobj.Substring(27, skilltreeobj.Length - 27 - 1) + "";
+                File.WriteAllText(skillTreeFile, skilltreeobj);
             }
 
             if (displayProgress)
@@ -692,9 +704,17 @@ namespace POESKillTree.SkillTreeFiles
             var distance = new Dictionary<int, int>();
             var parent = new Dictionary<ushort, ushort>();
             var newOnes = new Queue<ushort>();
+            var toOmit = new HashSet<ushort>(
+                         from entry in _nodeHighlighter.nodeHighlights
+                         where entry.Value.HasFlag(HighlightState.Crossed)
+                         select entry.Key.Id);
 
             foreach (var node in adjacent)
             {
+                if (toOmit.Contains(node))
+                {
+                    continue;
+                }
                 newOnes.Enqueue(node);
                 distance.Add(node, 1);
             }
@@ -706,6 +726,8 @@ namespace POESKillTree.SkillTreeFiles
                 visited.Add(newNode);
                 foreach (var connection in Skillnodes[newNode].Neighbor.Select(x => x.Id))
                 {
+                    if (toOmit.Contains(connection))
+                        continue;
                     if (visited.Contains(connection))
                         continue;
                     if (distance.ContainsKey(connection))
@@ -741,15 +763,60 @@ namespace POESKillTree.SkillTreeFiles
             return result;
         }
 
-        public void ToggleNodeHighlight(SkillNode node)
+        /// <summary>
+        /// Changes the HighlightState of the node:
+        /// None -> Checked -> Crossed -> None -> ...
+        /// (preserves other HighlightStates than Checked and Crossed)
+        /// </summary>
+        /// <param name="node">Node to change the HighlightState for</param>
+        public void CycleNodeTagForward(SkillNode node)
         {
-            _nodeHighlighter.ToggleHighlightNode(node, HighlightState.FromNode);
+            if (_nodeHighlighter.NodeHasHighlights(node, HighlightState.Checked))
+            {
+                _nodeHighlighter.UnhighlightNode(node, HighlightState.Checked);
+                _nodeHighlighter.HighlightNode(node, HighlightState.Crossed);
+            } 
+            else if (_nodeHighlighter.NodeHasHighlights(node, HighlightState.Crossed))
+            {
+                _nodeHighlighter.UnhighlightNode(node, HighlightState.Crossed);
+            }
+            else
+            {
+                _nodeHighlighter.HighlightNode(node, HighlightState.Checked);
+            }
             DrawHighlights(_nodeHighlighter);
         }
 
-        public void HighlightNodesBySearch(string search, bool useregex, bool fromSearchBox)
+        /// <summary>
+        /// Changes the HighlightState of the node:
+        /// ... <- None <- Checked <- Crossed <- None
+        /// (preserves other HighlightStates than Checked and Crossed)
+        /// </summary>
+        /// <param name="node">Node to change the HighlightState for</param>
+        public void CycleNodeTagBackward(SkillNode node)
         {
-            HighlightState flag = fromSearchBox ? HighlightState.FromSearch : HighlightState.FromAttrib;
+            if (_nodeHighlighter.NodeHasHighlights(node, HighlightState.Crossed))
+            {
+                _nodeHighlighter.UnhighlightNode(node, HighlightState.Crossed);
+                _nodeHighlighter.HighlightNode(node, HighlightState.Checked);
+            }
+            else if (_nodeHighlighter.NodeHasHighlights(node, HighlightState.Checked))
+            {
+                _nodeHighlighter.UnhighlightNode(node, HighlightState.Checked);
+            }
+            else
+            {
+                _nodeHighlighter.HighlightNode(node, HighlightState.Crossed);
+            }
+            DrawHighlights(_nodeHighlighter);
+        }
+
+        /// <param name="search">The string to search each node name and attribute for.</param>
+        /// <param name="useregex">If the string should be interpreted as a regex.</param>
+        /// <param name="flag">The flag to highlight found nodes with.</param>
+        /// <param name="matchCount">The number of attributes of a node that must match the search to get highlighted, -1 if the count doesn't matter.</param>
+        public void HighlightNodesBySearch(string search, bool useregex, HighlightState flag, int matchCount = -1)
+        {
             if (search == "")
             {
                 _nodeHighlighter.UnhighlightAllNodes(flag);
@@ -757,16 +824,18 @@ namespace POESKillTree.SkillTreeFiles
                 return;
             }
 
+            var matchFct = matchCount >= 0 ? (Func<string[], Func<string, bool>, bool>)
+                 ((attributes, predicate) => attributes.Count(predicate) == matchCount)
+                : (attributes, predicate) => attributes.Any(predicate);
             if (useregex)
             {
                 try
                 {
-                    List<SkillNode> nodes =
-                            Skillnodes.Values.Where(
-                                nd =>
-                                    nd.attributes.Any(att => new Regex(search, RegexOptions.IgnoreCase).IsMatch(att)) ||
-                                    new Regex(search, RegexOptions.IgnoreCase).IsMatch(nd.Name) && !nd.IsMastery)
-                                .ToList();
+                    var regex = new Regex(search, RegexOptions.IgnoreCase);
+                    var nodes =
+                        Skillnodes.Values.Where(
+                            nd => matchFct(nd.attributes, att => regex.IsMatch(att)) ||
+                                  regex.IsMatch(nd.Name) && !nd.IsMastery);
                     _nodeHighlighter.ReplaceHighlights(nodes, flag);
                     DrawHighlights(_nodeHighlighter);
                 }
@@ -777,11 +846,11 @@ namespace POESKillTree.SkillTreeFiles
             }
             else
             {
-                List<SkillNode> nodes =
+                search = search.ToLowerInvariant();
+                var nodes =
                     Skillnodes.Values.Where(
-                        nd =>
-                            nd.attributes.Count(att => att.ToLower().Contains(search.ToLower())) != 0 ||
-                            nd.Name.ToLower().Contains(search.ToLower()) && !nd.IsMastery).ToList();
+                        nd => matchFct(nd.attributes, att => att.ToLowerInvariant().Contains(search)) ||
+                              nd.Name.ToLowerInvariant().Contains(search) && !nd.IsMastery);
                 _nodeHighlighter.ReplaceHighlights(nodes, flag);
                 DrawHighlights(_nodeHighlighter);
             }
@@ -789,7 +858,25 @@ namespace POESKillTree.SkillTreeFiles
 
         public void UnhighlightAllNodes()
         {
-            _nodeHighlighter.UnhighlightAllNodes(HighlightState.All);
+            _nodeHighlighter.UnhighlightAllNodes(HighlightState.Highlights);
+        }
+
+        public void UntagAllNodes()
+        {
+            _nodeHighlighter.UnhighlightAllNodes(HighlightState.Tags);
+            DrawHighlights(_nodeHighlighter);
+        }
+
+        public void CheckAllHighlightedNodes()
+        {
+            _nodeHighlighter.HighlightNodesIf(HighlightState.Checked, HighlightState.Highlights);
+            DrawHighlights(_nodeHighlighter);
+        }
+
+        public void CrossAllHighlightedNodes()
+        {
+            _nodeHighlighter.HighlightNodesIf(HighlightState.Crossed, HighlightState.Highlights);
+            DrawHighlights(_nodeHighlighter);
         }
 
         public static Dictionary<string, List<float>> ImplicitAttributes(Dictionary<string, List<float>> attribs, int level)
@@ -836,7 +923,7 @@ namespace POESKillTree.SkillTreeFiles
             skillednodes = new HashSet<ushort>();
             url = Regex.Replace(url, @"\t| |\n|\r", "");
             string s =
-                url.Substring(TreeAddress.Length + (url.StartsWith("https") ? 1 : 0))
+                url.Substring(TreeAddress.Length + (url.StartsWith("https") ? 0 : -1))
                     .Replace("-", "+")
                     .Replace("_", "/");
             byte[] decbuff = Convert.FromBase64String(s);
@@ -855,7 +942,7 @@ namespace POESKillTree.SkillTreeFiles
             chartype = b;
 
 
-            SkillNode startnode = Skillnodes.First(nd => nd.Value.Name.ToUpper() == CharName[b].ToUpper()).Value;
+            SkillNode startnode = Skillnodes.First(nd => nd.Value.Name.ToUpperInvariant() == CharName[b]).Value;
             skillednodes.Add(startnode.Id);
             foreach (ushort node in nodes)
             {
@@ -879,51 +966,69 @@ namespace POESKillTree.SkillTreeFiles
         public void Reset()
         {
             SkilledNodes.Clear();
-            KeyValuePair<ushort, SkillNode> node = Skillnodes.First(nd => nd.Value.Name.ToUpper() == CharName[_chartype]);
+            KeyValuePair<ushort, SkillNode> node = Skillnodes.First(nd => nd.Value.Name.ToUpperInvariant() == CharName[_chartype]);
             SkilledNodes.Add(node.Value.Id);
             UpdateAvailNodes();
         }
 
         public string SaveToURL()
         {
-            var b = new byte[(SkilledNodes.Count - 1) * 2 + 6];
-            byte[] b2 = BitConverter.GetBytes(2);
-            b[0] = b2[3];
-            b[1] = b2[2];
-            b[2] = b2[1];
-            b[3] = b2[0];
-            b[4] = (byte)(Chartype);
-            b[5] = 0;
-            int pos = 6;
+            var b = new byte[(SkilledNodes.Count - 1) * 2];
+            var CharacterURL = GetCharacterURL((byte) Chartype);
+            int pos = 0;
             foreach (ushort inn in SkilledNodes)
             {
-                if (CharName.Contains(Skillnodes[inn].Name.ToUpper()))
+                if (CharName.Contains(Skillnodes[inn].Name.ToUpperInvariant()))
                     continue;
                 byte[] dbff = BitConverter.GetBytes((Int16)inn);
                 b[pos++] = dbff[1];
                 b[pos++] = dbff[0];
             }
-            return TreeAddress + Convert.ToBase64String(b).Replace("/", "_").Replace("+", "-");
+            return TreeAddress + CharacterURL + Convert.ToBase64String(b).Replace("/", "_").Replace("+", "-");
         }
 
-        public void SkillAllHighlightedNodes()
+        public static string GetCharacterURL(byte CharTypeByte = 0)
+        {
+            var b = new byte[6];
+            byte[] b2 = BitConverter.GetBytes(3); //skilltree version
+            for (var i = 0; i < b2.Length; i++)
+            {
+                b[i] = b2[(b2.Length - 1) - i];
+            }
+            b[4] = (byte)(CharTypeByte);
+            b[5] = 0;
+            return Convert.ToBase64String(b).Replace("/", "_").Replace("+", "-");
+        }
+
+        public void SkillAllTaggedNodes()
         {
             if (_nodeHighlighter == null)
                 return;
             var nodes = new HashSet<ushort>();
-            foreach (SkillNode nd in _nodeHighlighter.nodeHighlights.Keys)
+            var toOmit = new HashSet<ushort>();
+            foreach (var entry in _nodeHighlighter.nodeHighlights)
             {
-                if (!(rootNodeList.Contains(nd.Id) | SkilledNodes.Contains(nd.Id)))
-                    nodes.Add(nd.Id);
+                if (!(rootNodeList.Contains(entry.Key.Id) || SkilledNodes.Contains(entry.Key.Id)))
+                {
+                    // Crossed has precedence.
+                    if (entry.Value.HasFlag(HighlightState.Crossed))
+                    {
+                        toOmit.Add(entry.Key.Id);
+                    }
+                    else if (entry.Value.HasFlag(HighlightState.Checked))
+                    {
+                        nodes.Add(entry.Key.Id);
+                    }
+                }
             }
-            SkillNodeList(nodes);
+            SkillNodeList(nodes, toOmit);
         }
 
-        private void SkillNodeList(HashSet<ushort> targetNodeIds)
+        private void SkillNodeList(HashSet<ushort> targetNodeIds, HashSet<ushort> omitNodeIds)
         {
             if (targetNodeIds.Count == 0)
             {
-                MessageBox.Show("Please highlight some non-skilled nodes first!");
+                Popup.Info(L10n.Message("Please tag non-skilled nodes by right-clicking them."));
                 return;
             }
 
@@ -931,7 +1036,7 @@ namespace POESKillTree.SkillTreeFiles
             /// they're saved for restoring them afterwards.
             var savedHighlights = HighlightedNodes;
 
-            OptimizerControllerWindow optimizerDialog = new OptimizerControllerWindow(this, targetNodeIds);
+            OptimizerControllerWindow optimizerDialog = new OptimizerControllerWindow(this, targetNodeIds, omitNodeIds);
             optimizerDialog.Owner = MainWindow;
             optimizerDialog.ShowDialog();
             if (optimizerDialog.DialogResult == true)
@@ -944,6 +1049,23 @@ namespace POESKillTree.SkillTreeFiles
             this.DrawHighlights(_nodeHighlighter);
 
             UpdateAvailNodes();
+        }
+
+        /// <summary>
+        /// Splits multiline attribute strings (i.e. strings containing "\n" characters) into multiple attribute strings.
+        /// </summary>
+        /// <param name="attrs">An array of attribute strings to split.</param>
+        /// <returns>An array of attributes strings.</returns>
+        private static string[] SplitMultilineAttributes(string[] attrs)
+        {
+            if (attrs == null || attrs.Length == 0)
+                return attrs;
+
+            List<string> split = new List<string>();
+            for (int i = 0; i < attrs.Length; ++i)
+                split.AddRange(attrs[i].Split('\n'));
+
+            return split.ToArray();
         }
 
         public void UpdateAvailNodes(bool draw = true)
@@ -963,7 +1085,7 @@ namespace POESKillTree.SkillTreeFiles
                 SkillNode node = Skillnodes[inode];
                 foreach (SkillNode skillNode in node.Neighbor)
                 {
-                    if (!CharName.Contains(skillNode.Name) && !SkilledNodes.Contains(skillNode.Id))
+                    if (!CharName.Contains(skillNode.Name.ToUpperInvariant()) && !SkilledNodes.Contains(skillNode.Id))
                         availNodes.Add(skillNode.Id);
                 }
             }
@@ -1015,15 +1137,7 @@ namespace POESKillTree.SkillTreeFiles
             int rootNodeValue;
             var temp = new List<ushort>();
 
-            if (className.ToUpper() == "SHADOW")
-            {
-                className = "SIX";
-            }
-            if (className.ToUpper() == "SCION")
-            {
-                className = "SEVEN";
-            }
-            _rootNodeClassDictionary.TryGetValue(className.ToUpper(), out rootNodeValue);
+            _rootNodeClassDictionary.TryGetValue(className.ToUpperInvariant(), out rootNodeValue);
             var classSpecificStartNodes = _startNodeDictionary.Where(kvp => kvp.Value == rootNodeValue).Select(kvp => kvp.Key);
 
             foreach (int node in classSpecificStartNodes)

@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -16,16 +18,15 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using MahApps.Metro;
 using MahApps.Metro.Controls;
 using POESKillTree.Controls;
+using POESKillTree.Localization;
 using POESKillTree.Model;
 using POESKillTree.SkillTreeFiles;
 using POESKillTree.Utils;
 using POESKillTree.ViewModels;
-using POESKillTree.ViewModels.ItemAttribute;
 using Application = System.Windows.Application;
 using Attribute = POESKillTree.ViewModels.Attribute;
 using Clipboard = System.Windows.Clipboard;
@@ -38,21 +39,30 @@ using ListViewItem = System.Windows.Controls.ListViewItem;
 using MessageBox = POESKillTree.Views.MetroMessageBox;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using ToolTip = System.Windows.Controls.ToolTip;
+using POESKillTree.ViewModels.Items;
+
+using Path = System.IO.Path;
 
 namespace POESKillTree.Views
 {
     /// <summary>
     ///     Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : MetroWindow
+    public partial class MainWindow : MetroWindow, INotifyPropertyChanged
     {
-        private readonly PersistentData _persistentData = new PersistentData();
+        /// <summary>
+        /// The set of keys of which one needs to be pressed to highlight similar nodes on hover.
+        /// </summary>
+        private static readonly Key[] HighlightByHoverKeys = { Key.LeftShift, Key.RightShift };
+
+        private readonly PersistentData _persistentData = App.PersistentData;
+
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public PersistentData PersistentData
         {
             get { return _persistentData; }
-        } 
-
+        }
 
         private static readonly Action EmptyDelegate = delegate { };
         private readonly List<Attribute> _allAttributesList = new List<Attribute>();
@@ -65,14 +75,26 @@ namespace POESKillTree.Views
         private readonly ToolTip _sToolTip = new ToolTip();
         private readonly ToolTip _noteTip = new ToolTip();
         private ListCollectionView _allAttributeCollection;
-        private ListCollectionView _attibuteCollection;
+        private ListCollectionView _attributeCollection;
         private ListCollectionView _defenceCollection;
         private ListCollectionView _offenceCollection;
         private RenderTargetBitmap _clipboardBmp;
 
         private ItemAttributes _itemAttributes;
+
+        public ItemAttributes ItemAttributes
+        {
+            get { return _itemAttributes; }
+            private set
+            {
+                _itemAttributes = value;
+                if (PropertyChanged != null)
+                    PropertyChanged(this, new PropertyChangedEventArgs("ItemAttributes"));
+            }
+        }
+
+
         protected SkillTree Tree;
-        private const string TreeAddress = "http://www.pathofexile.com/passive-skill-tree/";
         private Vector2D _addtransform;
         private bool _justLoaded;
         private string _lasttooltip;
@@ -93,11 +115,34 @@ namespace POESKillTree.Views
         private MouseButton _lastMouseButton;
         private String _highlightedAttribute = "";
 
+        /// <summary>
+        /// The node of the SkillTree that currently has the mouse over it.
+        /// Null if no node is under the mouse.
+        /// </summary>
+        private SkillNode _hoveredNode;
+
+        private SkillNode _lastHoveredNode;
+
+        private bool _noAsyncTaskRunning = true;
+        /// <summary>
+        /// Specifies if there is a task running asynchronously in the background.
+        /// Used to disable UI buttons that might interfere with the result of the task.
+        /// </summary>
+        public bool NoAsyncTaskRunning
+        {
+            get { return _noAsyncTaskRunning; }
+            private set
+            {
+                _noAsyncTaskRunning = value;
+                if (PropertyChanged != null)
+                {
+                    PropertyChanged(this, new PropertyChangedEventArgs("NoAsyncTaskRunning"));
+                }
+            }
+        }
+
         public MainWindow()
         {
-            Thread.CurrentThread.SetApartmentState(ApartmentState.STA);
-            Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
-
             InitializeComponent();
         }
 
@@ -106,13 +151,12 @@ namespace POESKillTree.Views
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             ItemDB.Load("Items.xml");
-            if (File.Exists("ItemsLocal.xml"))
-                ItemDB.Merge("ItemsLocal.xml");
+            ItemDB.Merge("ItemsLocal.xml");
             ItemDB.Index();
 
-            _attibuteCollection = new ListCollectionView(_attiblist);
-            listBox1.ItemsSource = _attibuteCollection;
-            _attibuteCollection.GroupDescriptions.Add(new PropertyGroupDescription("Text")
+            _attributeCollection = new ListCollectionView(_attiblist);
+            listBox1.ItemsSource = _attributeCollection;
+            _attributeCollection.GroupDescriptions.Add(new PropertyGroupDescription("Text")
             {
                 Converter = new GroupStringConverter()
             });
@@ -132,28 +176,33 @@ namespace POESKillTree.Views
             _offenceCollection.GroupDescriptions.Add(new PropertyGroupDescription("Group"));
             listBoxOffence.ItemsSource = _offenceCollection;
 
-            //Load Persistent Data and set theme
-            _persistentData.LoadPersistentDataFromFile();
+            cbCharType.ItemsSource =
+                CharacterNames.NameToContent.Select(
+                    x => new ComboBoxItem {Name = x.Key, Content = x.Value});
+
+            if (_persistentData.StashBookmarks != null)
+                Stash.Bookmarks = new System.Collections.ObjectModel.ObservableCollection<StashBookmark>(_persistentData.StashBookmarks);
+
+            // Set theme & accent.
             SetTheme(_persistentData.Options.Theme);
             SetAccent(_persistentData.Options.Accent);
 
             Tree = SkillTree.CreateSkillTree(StartLoadingWindow, UpdateLoadingWindow, CloseLoadingWindow);
             Tree.MainWindow = this;
-            recSkillTree.Width = SkillTree.TRect.Width / SkillTree.TRect.Height * 500;
+            recSkillTree.Width = SkillTree.TRect.Width / SkillTree.TRect.Height * recSkillTree.Height;
             recSkillTree.UpdateLayout();
             recSkillTree.Fill = new VisualBrush(Tree.SkillTreeVisual);
-
-            Tree.Chartype =
-                SkillTree.CharName.IndexOf(((string)((ComboBoxItem)cbCharType.SelectedItem).Content).ToUpper());
-            Tree.UpdateAvailNodes();
-            UpdateUI();
 
             _multransform = SkillTree.TRect.Size / new Vector2D(recSkillTree.RenderSize.Width, recSkillTree.RenderSize.Height);
             _addtransform = SkillTree.TRect.TopLeft;
 
+            _justLoaded = true;
+
             // loading last build
             if (_persistentData.CurrentBuild != null)
                 SetCurrentBuild(_persistentData.CurrentBuild);
+            else
+                LoadItemData(null);
 
             btnLoadBuild_Click(this, new RoutedEventArgs());
             _justLoaded = false;
@@ -218,6 +267,11 @@ namespace POESKillTree.Views
                 }
             }
 
+            if (HighlightByHoverKeys.Any(key => key == e.Key))
+            {
+                HighlightNodesByHover();
+            }
+
             if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 switch (e.Key)
@@ -229,6 +283,14 @@ namespace POESKillTree.Views
             }
         }
 
+        private void Window_PreviewKeyUp(object sender, KeyEventArgs e)
+        {
+            if (HighlightByHoverKeys.Any(key => key == e.Key))
+            {
+                HighlightNodesByHover();
+            }
+        }
+
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
         {
         }
@@ -237,30 +299,26 @@ namespace POESKillTree.Views
         {
             _persistentData.CurrentBuild.Url = tbSkillURL.Text;
             _persistentData.CurrentBuild.Level = tbLevel.Text;
-            _persistentData.SavePersistentDataToFile();
-
-            if (lvSavedBuilds.Items.Count > 0)
-            {
-                SaveBuildsToFile();
-            }
+            _persistentData.SetBuilds(lvSavedBuilds.Items);
+            _persistentData.StashBookmarks = Stash.Bookmarks.ToList();
         }
 
         #endregion
 
         #region LoadingWindow
 
-        private void StartLoadingWindow()
+        private void StartLoadingWindow(string infoText)
         {
-            _loadingWindow = new LoadingWindow();
-            _loadingWindow.Show();
-            Thread.Sleep(400);
+            _loadingWindow = new LoadingWindow() {Owner = this, InfoText = infoText};
             _loadingWindow.Dispatcher.Invoke(DispatcherPriority.Render, EmptyDelegate);
+            _loadingWindow.Show();
         }
 
         private void UpdateLoadingWindow(double c, double max)
         {
-            _loadingWindow.progressBar1.Maximum = max;
-            _loadingWindow.progressBar1.Value = c;
+            _loadingWindow.MaxProgress = max;
+            _loadingWindow.Progress = c;
+            _loadingWindow.UpdateLayout();
             _loadingWindow.Dispatcher.Invoke(DispatcherPriority.Render, EmptyDelegate);
             if (Equals(c, max))
                 Thread.Sleep(100);
@@ -275,13 +333,13 @@ namespace POESKillTree.Views
 
         #region Menu
 
-        private void Menu_SkillHighlightedNodes(object sender, RoutedEventArgs e)
+        private void Menu_SkillTaggedNodes(object sender, RoutedEventArgs e)
         {
             var currentCursor = Cursor;
             try
             {
                 Cursor = Cursors.Wait;
-                Tree.SkillAllHighlightedNodes();
+                Tree.SkillAllTaggedNodes();
                 UpdateUI();
                 tbSkillURL.Text = Tree.SaveToURL();
             }
@@ -291,10 +349,25 @@ namespace POESKillTree.Views
             }
         }
 
+        private void Menu_UntagAllNodes(object sender, RoutedEventArgs e)
+        {
+            Tree.UntagAllNodes();
+        }
+
         private void Menu_UnhighlightAllNodes(object sender, RoutedEventArgs e)
         {
             Tree.UnhighlightAllNodes();
             ClearSearch();
+        }
+
+        private void Menu_CheckAllHighlightedNodes(object sender, RoutedEventArgs e)
+        {
+            Tree.CheckAllHighlightedNodes();
+        }
+
+        private void Menu_CrossAllHighlightedNodes(object sender, RoutedEventArgs e)
+        {
+            Tree.CrossAllHighlightedNodes();
         }
 
         private void Menu_ScreenShot(object sender, RoutedEventArgs e)
@@ -336,12 +409,13 @@ namespace POESKillTree.Views
                 recSkillTree.Fill = new VisualBrush(Tree.SkillTreeVisual);
             }
         }
-        
+
         private void Menu_ImportItems(object sender, RoutedEventArgs e)
         {
-            var diw = new DownloadItemsWindow(_persistentData.CurrentBuild.CharacterName) { Owner = this };
+            var diw = new DownloadItemsWindow(_persistentData.CurrentBuild.CharacterName, _persistentData.CurrentBuild.AccountName) { Owner = this };
             diw.ShowDialog();
             _persistentData.CurrentBuild.CharacterName = diw.GetCharacterName();
+            _persistentData.CurrentBuild.AccountName = diw.GetAccountName();
         }
 
         private void Menu_ClearItems(object sender, RoutedEventArgs e)
@@ -360,58 +434,62 @@ namespace POESKillTree.Views
             {
                 System.Windows.Forms.Clipboard.SetText(sb.ToString());
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                MessageBox.Show(this, "Clipboard could not be copied to. Please try again.", "Failed Copy!", MessageBoxButton.OK, MessageBoxImage.Error);
+                Popup.Error(L10n.Message("An error occurred while copying to Clipboard."), ex.Message);
             }
         }
 
         private void Menu_RedownloadTreeAssets(object sender, RoutedEventArgs e)
         {
-            const string sMessageBoxText = "This will delete your data folder and Redownload all the SkillTree assets.\nThis requires an internet connection!\n\nDo you want to proced?";
-            const string sCaption = "Redownload SkillTree Assets - Warning";
+            string sMessageBoxText = L10n.Message("The existing Skill tree assets will be deleted and new assets will be downloaded.")
+                                     + "\n\n" + L10n.Message("Do you want to continue?");
 
-            var rsltMessageBox = MessageBox.Show(this, sMessageBoxText, sCaption, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            var rsltMessageBox = Popup.Ask(sMessageBoxText, MessageBoxImage.Warning);
             switch (rsltMessageBox)
             {
                 case MessageBoxResult.Yes:
-                    if (Directory.Exists("Data"))
+                    string appDataPath = AppData.GetFolder(true);
+
+                    try
                     {
+                        if (Directory.Exists(appDataPath + "Data"))
+                        {
+                            if (Directory.Exists(appDataPath + "DataBackup"))
+                                Directory.Delete(appDataPath + "DataBackup", true);
+
+                            Directory.Move(appDataPath + "Data", appDataPath + "DataBackup");
+                        }
+
+                        Tree = SkillTree.CreateSkillTree(StartLoadingWindow, UpdateLoadingWindow, CloseLoadingWindow);
+                        recSkillTree.Fill = new VisualBrush(Tree.SkillTreeVisual);
+
+
+                        SkillTree.ClearAssets();//enable recaching of assets
+                        SkillTree.CreateSkillTree();//create new skilltree to reinitialize cache
+
+
+                        btnLoadBuild_Click(this, new RoutedEventArgs());
+                        _justLoaded = false;
+
+                        if (Directory.Exists(appDataPath + "DataBackup"))
+                            Directory.Delete(appDataPath + "DataBackup", true);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Directory.Exists(appDataPath + "Data"))
+                            Directory.Delete(appDataPath + "Data", true);
                         try
                         {
-                            if (Directory.Exists("DataBackup"))
-                                Directory.Delete("DataBackup", true);
-                            Directory.Move("Data", "DataBackup");
-
-                            Tree = SkillTree.CreateSkillTree(StartLoadingWindow, UpdateLoadingWindow, CloseLoadingWindow);
-                            recSkillTree.Fill = new VisualBrush(Tree.SkillTreeVisual);
-
-
-                            SkillTree.ClearAssets();//enable recaching of assets
-                            SkillTree.CreateSkillTree();//create new skilltree to reinitialize cache
-
-
-                            btnLoadBuild_Click(this, new RoutedEventArgs());
-                            _justLoaded = false;
-
-                            if (Directory.Exists("DataBackup"))
-                                Directory.Delete("DataBackup", true);
+                            CloseLoadingWindow();
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
-                            if (Directory.Exists("Data"))
-                                Directory.Delete("Data", true);
-                            try
-                            {
-                                CloseLoadingWindow();
-                            }
-                            catch (Exception)
-                            {
-                                //Nothing
-                            }
-                            Directory.Move("DataBackup", "Data");
-                            MessageBox.Show(this, ex.Message.ToString(), "Error while downloading assets", MessageBoxButton.OK, MessageBoxImage.Error);
+                            //Nothing
                         }
+                        Directory.Move(appDataPath + "DataBackup", appDataPath + "Data");
+
+                        Popup.Error(L10n.Message("An error occurred while downloading assets."), ex.Message);
                     }
                     break;
 
@@ -455,97 +533,107 @@ namespace POESKillTree.Views
         }
 
         // Checks for updates.
-        private void Menu_CheckForUpdates(object sender, RoutedEventArgs e)
+        private async void Menu_CheckForUpdates(object sender, RoutedEventArgs e)
         {
             try
             {
-                Updater.Release release = Updater.CheckForUpdates();
+                // No non-Task way without rewriting Updater to support/use await directly.
+                var release =
+                    await AwaitAsyncTask(L10n.Message("Checking for updates"),
+                        Task.Run(() => Updater.CheckForUpdates()));
+
                 if (release == null)
                 {
-                    MessageBox.Show(this, "You have the lastest version!", "No update found.");
+                    Popup.Info(L10n.Message("You have the latest version!"));
                 }
                 else
                 {
-                    var message = "Would you like to install " + release.Version + "?";
-                    MessageBoxResult download = new MessageBoxResult();
-                    if (release.Version.ToLower().Contains("pre"))
-                    {
-                        download = MessageBox.Show(this, message + "\nThis is a pre-release, meaning there could be some bugs!", "Pre-release Found!", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    }
-                    else
-                        download = MessageBox.Show(this, message, "Release Found!", MessageBoxButton.YesNo, MessageBoxImage.None);
+                    string message = release.IsUpdate
+                        ? string.Format(L10n.Message("An update for {0} ({1}) is available!"),
+                            Properties.Version.ProductName, release.Version)
+                          + "\n\n" +
+                          L10n.Message("The application will be closed when download completes to proceed with the update.")
+                        : string.Format(L10n.Message("A new version {0} is available!"), release.Version)
+                          + "\n\n" +
+                          L10n.Message(
+                              "The new version of application will be installed side-by-side with earlier versions.");
 
+                    if (release.IsPrerelease)
+                        message += "\n\n" +
+                                   L10n.Message("Warning: This is a pre-release, meaning there could be some bugs!");
+
+                    message += "\n\n" +
+                               (release.IsUpdate
+                                   ? L10n.Message("Do you want to download and install the update?")
+                                   : L10n.Message("Do you want to download and install the new version?"));
+
+                    MessageBoxResult download = Popup.Ask(message,
+                        release.IsPrerelease ? MessageBoxImage.Warning : MessageBoxImage.Question);
                     if (download == MessageBoxResult.Yes)
-                        btnUpdateInstall(sender, e);
+                        btnUpdateInstall();
                     else
-                        btnUpdateCancel(sender, e);
-                    // Show dialog with release informations and "Install & Restart" button.
+                        btnUpdateCancel();
                 }
             }
             catch (UpdaterException ex)
             {
-                // Display error message: ex.Message.
-                MessageBox.Show(this, ex.Message.ToString(), "Error while checking for updates", MessageBoxButton.OK, MessageBoxImage.Error);
+                Popup.Error(
+                    L10n.Message("An error occurred while attempting to contact the update location."),
+                    ex.Message);
             }
         }
 
         // Starts update process.
-        private void btnUpdateInstall(object sender, RoutedEventArgs e)
+        private void btnUpdateInstall()
         {
             try
             {
-                // Show download progress bar and Cancel button.
-                // Start downloading.
-                StartLoadingWindow();
+                StartLoadingWindow(L10n.Message("Downloading latest version"));
                 Updater.Download(UpdateDownloadCompleted, UpdateDownloadProgressChanged);
             }
             catch (UpdaterException ex)
             {
-                // Display error message: ex.Message.
-                MessageBox.Show(this, ex.Message.ToString(), "Failed to install update!");
+                Popup.Error(L10n.Message("An error occurred during the download operation."), ex.Message);
             }
         }
 
         // Cancels update download (also invoked when download progress dialog is closed).
-        private void btnUpdateCancel(object sender, RoutedEventArgs e)
+        private void btnUpdateCancel()
         {
             if (Updater.IsDownloading)
                 Updater.Cancel();
             else
             {
                 Updater.Dispose();
-                // Close dialog.
             }
         }
 
         // Invoked when update download completes, aborts or fails.
         private void UpdateDownloadCompleted(Object sender, AsyncCompletedEventArgs e)
         {
+            CloseLoadingWindow();
             if (e.Cancelled) // Check whether download was cancelled.
             {
                 Updater.Dispose();
-                // Close dialog.
             }
-            else if (e.Error != null) // Check whether error occured.
+            else if (e.Error != null) // Check whether error occurred.
             {
-                // Display error message: e.Error.Message.
-                MessageBox.Show(this, e.Error.Message.ToString(), "Failed to install update!");
+                Popup.Error(L10n.Message("An error occurred during the download operation."), e.Error.Message);
             }
             else // Download completed.
             {
                 try
                 {
                     Updater.Install();
-                    Updater.RestartApplication();
+                    // Release being installed is an update, we have to exit application.
+                    if (Updater.GetLatestRelease().IsUpdate) App.Current.Shutdown();
                 }
                 catch (UpdaterException ex)
                 {
                     Updater.Dispose();
-                    // Display error message: ex.Message.
-                    MessageBox.Show(this, ex.Message.ToString(), "Failed to install update!");
+                    Popup.Error(L10n.Message("An error occurred while attempting to start the installation."), ex.Message);
                 }
             }
-            CloseLoadingWindow();
         }
 
         // Invoked when update download progress changes.
@@ -574,27 +662,24 @@ namespace POESKillTree.Views
 
             if (Tree.CanSwitchClass(className))
             {
-                var currentClassArray = getCurrentClass();
+                var currentClassArray = GetCurrentClass();
                 var changeClassArray = getAnyClass(className);
 
                 if (currentClassArray[0] == "ERROR")
                     return;
                 if (changeClassArray[0] == "ERROR")
                     return;
-                var usedPoints = tbUsedPoints.Text;
-                cbCharType.Text = changeClassArray[0];
 
                 Tree.LoadFromURL(tbSkillURL.Text.Replace(currentClassArray[1], changeClassArray[1]));
-                tbUsedPoints.Text = usedPoints;
             }
             else
             {
                 var startnode =
                     SkillTree.Skillnodes.First(
-                        nd => nd.Value.Name.ToUpper() == (SkillTree.CharName[cbCharType.SelectedIndex]).ToUpper()).Value;
+                        nd => nd.Value.Name.ToUpperInvariant() == (SkillTree.CharName[cbCharType.SelectedIndex])).Value;
                 Tree.SkilledNodes.Clear();
                 Tree.SkilledNodes.Add(startnode.Id);
-                Tree.Chartype = SkillTree.CharName.IndexOf((SkillTree.CharName[cbCharType.SelectedIndex]).ToUpper());
+                Tree.Chartype = cbCharType.SelectedIndex;
             }
             Tree.UpdateAvailNodes();
             UpdateUI();
@@ -625,6 +710,7 @@ namespace POESKillTree.Views
         public void UpdateUI()
         {
             UpdateAttributeList();
+            UpdateAllAttributeList();
             UpdateStatistics();
             UpdateClass();
         }
@@ -679,10 +765,12 @@ namespace POESKillTree.Views
 
             _allAttributeCollection.Refresh();
         }
+
         public void UpdateClass()
         {
             cbCharType.SelectedIndex = Tree.Chartype;
         }
+
         public void UpdateAttributeList()
         {
             _attiblist.Clear();
@@ -716,7 +804,7 @@ namespace POESKillTree.Views
                 }
             }
 
-            _attibuteCollection.Refresh();
+            _attributeCollection.Refresh();
             tbUsedPoints.Text = "" + (Tree.SkilledNodes.Count - 1);
         }
 
@@ -807,13 +895,12 @@ namespace POESKillTree.Views
         private void TextBlock_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             var newHighlightedAttribute =
-                Regex.Replace(
-                    Regex.Match(listBox1.SelectedItem.ToString(), @"(?!\d)\w.*\w")
-                        .Value.Replace(@"+", @"\+")
+                "^" + Regex.Replace(listBox1.SelectedItem.ToString()
+                        .Replace(@"+", @"\+")
                         .Replace(@"-", @"\-")
-                        .Replace(@"%", @"\%"), @"\d+", @"\d+");
+                        .Replace(@"%", @"\%"), @"[0-9]*\.?[0-9]+", @"[0-9]*\.?[0-9]+") + "$";
             _highlightedAttribute = newHighlightedAttribute == _highlightedAttribute ? "" : newHighlightedAttribute;
-            Tree.HighlightNodesBySearch(_highlightedAttribute, true, false);
+            Tree.HighlightNodesBySearch(_highlightedAttribute, true, NodeHighlighter.HighlightState.FromAttrib);
         }
 
         private void expAttributes_MouseLeave(object sender, MouseEventArgs e)
@@ -846,6 +933,7 @@ namespace POESKillTree.Views
         private void zbSkillTreeBackground_Click(object sender, RoutedEventArgs e)
         {
             Point p = ((MouseEventArgs)e.OriginalSource).GetPosition(zbSkillTreeBackground.Child);
+            Size size = zbSkillTreeBackground.Child.DesiredSize;
             var v = new Vector2D(p.X, p.Y);
 
             v = v * _multransform + _addtransform;
@@ -861,7 +949,16 @@ namespace POESKillTree.Views
                 {
                     if (_lastMouseButton == MouseButton.Right)
                     {
-                        Tree.ToggleNodeHighlight(node);
+                        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+                        {
+                            // Backward on shift+RMB
+                            Tree.CycleNodeTagBackward(node);
+                        }
+                        else
+                        {
+                            // Forward on RMB
+                            Tree.CycleNodeTagForward(node);
+                        }
                         e.Handled = true;
                     }
                     else
@@ -891,6 +988,16 @@ namespace POESKillTree.Views
                     }
                 }
             }
+            else
+            {
+                if (p.X < 0 || p.Y < 0 || p.X > size.Width || p.Y > size.Height)
+                {
+                    if (_lastMouseButton == MouseButton.Right)
+                    {
+                        zbSkillTreeBackground.Reset();
+                    }
+                }
+            }
             tbSkillURL.Text = Tree.SaveToURL();
         }
 
@@ -907,8 +1014,6 @@ namespace POESKillTree.Views
             Point p = e.GetPosition(zbSkillTreeBackground.Child);
             var v = new Vector2D(p.X, p.Y);
             v = v * _multransform + _addtransform;
-            textBox1.Text = "" + v.X;
-            textBox2.Text = "" + v.Y;
             SkillNode node = null;
 
             IEnumerable<KeyValuePair<ushort, SkillNode>> nodes =
@@ -916,8 +1021,14 @@ namespace POESKillTree.Views
             if (nodes.Count() != 0)
                 node = nodes.First().Value;
 
+            _hoveredNode = node;
+
             if (node != null && node.Attributes.Count != 0)
             {
+                if (node.IsJewelSocket)
+                {
+                    Tree.DrawJewelHighlight(node);
+                }
                 if (Tree.SkilledNodes.Contains(node.Id))
                 {
                     _toRemove = Tree.ForceRefundNodePreview(node.Id);
@@ -929,7 +1040,7 @@ namespace POESKillTree.Views
                     _prePath = Tree.GetShortestPathTo(node.Id, Tree.SkilledNodes);
                     Tree.DrawPath(_prePath);
                 }
-                
+
                 var tooltip = node.Name + "\n" + node.attributes.Aggregate((s1, s2) => s1 + "\n" + s2);
                 if (!(_sToolTip.IsOpen && _lasttooltip == tooltip))
                 {
@@ -941,11 +1052,14 @@ namespace POESKillTree.Views
                     if (_prePath != null)
                     {
                         sp.Children.Add(new Separator());
-                        sp.Children.Add(new TextBlock {Text = "Points to skill node: " + _prePath.Count});
+                        sp.Children.Add(new TextBlock { Text = "Points to skill node: " + _prePath.Count });
                     }
 
                     _sToolTip.Content = sp;
-                    _sToolTip.IsOpen = true;
+                    if (!HighlightByHoverKeys.Any(Keyboard.IsKeyDown))
+                    {
+                        _sToolTip.IsOpen = true;
+                    }
                     _lasttooltip = tooltip;
                 }
             }
@@ -958,6 +1072,7 @@ namespace POESKillTree.Views
                 if (Tree != null)
                 {
                     Tree.ClearPath();
+                    Tree.ClearJewelHighlight();
                 }
             }
         }
@@ -965,6 +1080,48 @@ namespace POESKillTree.Views
         private void zbSkillTreeBackground_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             //zbSkillTreeBackground.Child.RaiseEvent(e);
+        }
+
+        private void HighlightNodesByHover()
+        {
+            if (Tree == null)
+            {
+                return;
+            }
+
+            if (_hoveredNode == null || _hoveredNode.Attributes.Count == 0 ||
+                !HighlightByHoverKeys.Any(Keyboard.IsKeyDown))
+            {
+                if (_hoveredNode != null && _hoveredNode.Attributes.Count > 0)
+                {
+                    _sToolTip.IsOpen = true;
+                }
+
+                Tree.HighlightNodesBySearch("", true, NodeHighlighter.HighlightState.FromHover);
+
+                _lastHoveredNode = null;
+            }
+            else
+            {
+                _sToolTip.IsOpen = false;
+
+                if (_lastHoveredNode == _hoveredNode)
+                {
+                    // Not necessary, but stops it from continuously searching when holding down shift.
+                    return;
+                }
+
+                var search = _hoveredNode.Attributes.Aggregate("^(", (current, attr) => current + (attr.Key + "|"));
+                search = search.Substring(0, search.Length - 1);
+                search += ")$";
+                search = Regex.Replace(search, @"(\+|\-|\%)", @"\$1");
+                search = Regex.Replace(search, @"\#", @"[0-9]*\.?[0-9]+");
+
+                Tree.HighlightNodesBySearch(search, true, NodeHighlighter.HighlightState.FromHover,
+                    _hoveredNode.Attributes.Count); // Remove last parameter to highlight nodes with any of the attributes.
+
+                _lastHoveredNode = _hoveredNode;
+            }
         }
 
         #endregion
@@ -978,17 +1135,15 @@ namespace POESKillTree.Views
                 try
                 {
                     _persistentData.CurrentBuild.ItemData = itemData;
-                    _itemAttributes = new ItemAttributes(itemData);
-                    lbItemAttr.ItemsSource = _itemAttributes.Attributes;
+                    ItemAttributes = new ItemAttributes(itemData);
                     mnuClearItems.IsEnabled = true;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, "Item data currupted!");
                     _persistentData.CurrentBuild.ItemData = "";
-                    _itemAttributes = null;
-                    lbItemAttr.ItemsSource = null;
+                    ItemAttributes = new ItemAttributes();
                     ClearCurrentItemData();
+                    Popup.Error(L10n.Message("An error occurred while attempting to load item data."), ex.Message);
                 }
             }
             else
@@ -1002,8 +1157,7 @@ namespace POESKillTree.Views
         public void ClearCurrentItemData()
         {
             _persistentData.CurrentBuild.ItemData = "";
-            _itemAttributes = null;
-            lbItemAttr.ItemsSource = null;
+            ItemAttributes = new ItemAttributes();
             UpdateUI();
             mnuClearItems.IsEnabled = false;
         }
@@ -1028,12 +1182,14 @@ namespace POESKillTree.Views
 
             var selectedItem = (ComboBoxItem)cbCharTypeSavedBuildFilter.SelectedItem;
             var className = selectedItem.Content.ToString();
-            var filterText = tbSavedBuildFilter.Text.ToLower();
+            var filterText = tbSavedBuildFilter.Text;
 
             foreach (PoEBuild item in lvSavedBuilds.Items)
             {
-                item.Visible = (className.Equals("All") || item.Class.Equals(className)) && 
-                    (item.Name.ToLower().Contains(filterText) || item.Note.ToLower().Contains(filterText));
+                item.Visible = (className.Equals("All", StringComparison.InvariantCultureIgnoreCase) ||
+                                item.Class.Equals(className, StringComparison.InvariantCultureIgnoreCase)) &&
+                               (item.Name.Contains(filterText, StringComparison.InvariantCultureIgnoreCase) ||
+                                item.Note.Contains(filterText, StringComparison.InvariantCultureIgnoreCase));
             }
 
             lvSavedBuilds.Items.Refresh();
@@ -1059,7 +1215,7 @@ namespace POESKillTree.Views
             if (highlightedItem != null)
             {
                 var build = (PoEBuild)highlightedItem.Content;
-                _noteTip.Content = build.Note == @"" ? @"Right Click To Edit" : build.Note;
+                _noteTip.Content = build.Note == @"" ? L10n.Message("Right click to edit") : build.Note;
                 _noteTip.IsOpen = true;
             }
         }
@@ -1075,6 +1231,7 @@ namespace POESKillTree.Views
                 selectedBuild.Name = formBuildName.GetBuildName();
                 selectedBuild.Note = formBuildName.GetNote();
                 selectedBuild.CharacterName = formBuildName.GetCharacterName();
+                selectedBuild.AccountName = formBuildName.GetAccountName();
                 selectedBuild.ItemData = formBuildName.GetItemData();
                 lvSavedBuilds.Items.Refresh();
             }
@@ -1118,6 +1275,7 @@ namespace POESKillTree.Views
                 var selectedBuild = (PoEBuild)lvSavedBuilds.SelectedItem;
                 selectedBuild.Class = cbCharType.Text;
                 selectedBuild.CharacterName = _persistentData.CurrentBuild.CharacterName;
+                selectedBuild.AccountName = _persistentData.CurrentBuild.AccountName;
                 selectedBuild.Level = tbLevel.Text;
                 selectedBuild.PointsUsed = tbUsedPoints.Text;
                 selectedBuild.Url = tbSkillURL.Text;
@@ -1128,8 +1286,7 @@ namespace POESKillTree.Views
             }
             else
             {
-                MessageBox.Show(this, "Please select an existing build first.", "Error", MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                Popup.Info(L10n.Message("Please select a saved build."));
             }
         }
 
@@ -1184,7 +1341,7 @@ namespace POESKillTree.Views
 
         private void SaveNewBuild()
         {
-            var formBuildName = new FormChooseBuildName(_persistentData.CurrentBuild.CharacterName, _persistentData.CurrentBuild.ItemData);
+            var formBuildName = new FormChooseBuildName(_persistentData.CurrentBuild.CharacterName, _persistentData.CurrentBuild.AccountName, _persistentData.CurrentBuild.ItemData);
             formBuildName.Owner = this;
             var show_dialog = formBuildName.ShowDialog();
             if (show_dialog != null && (bool)show_dialog)
@@ -1198,6 +1355,7 @@ namespace POESKillTree.Views
                     Url = tbSkillURL.Text,
                     Note = formBuildName.GetNote(),
                     CharacterName = formBuildName.GetCharacterName(),
+                    AccountName = formBuildName.GetAccountName(),
                     ItemData = formBuildName.GetItemData(),
                     LastUpdated = DateTime.Now
                 };
@@ -1213,10 +1371,18 @@ namespace POESKillTree.Views
 
         private void SaveBuildsToFile()
         {
-            _persistentData.SaveBuilds(lvSavedBuilds.Items);
+            try
+            {
+                _persistentData.SetBuilds(lvSavedBuilds.Items);
+                _persistentData.SavePersistentDataToFile();
+            }
+            catch (Exception e)
+            {
+                Popup.Error(L10n.Message("An error occurred during a save operation."), e.Message);
+            }
         }
 
-        private void LoadBuildFromUrl()
+        private async void LoadBuildFromUrl()
         {
             try
             {
@@ -1225,42 +1391,55 @@ namespace POESKillTree.Views
                     SkillTreeImporter.LoadBuildFromPoezone(Tree, tbSkillURL.Text);
                     tbSkillURL.Text = Tree.SaveToURL();
                 }
-                else if (tbSkillURL.Text.Contains("poebuilder.com/"))
+                else if (tbSkillURL.Text.Contains("tinyurl.com") || tbSkillURL.Text.Contains("poeurl.com"))
                 {
-                    const string poebuilderTree = "https://poebuilder.com/character/";
-                    const string poebuilderTreeWWW = "https://www.poebuilder.com/character/";
-                    const string poebuilderTreeOWWW = "http://www.poebuilder.com/character/";
-                    const string poebuilderTreeO = "http://poebuilder.com/character/";
-                    var urlString = tbSkillURL.Text;
-                    urlString = urlString.Replace(poebuilderTree, MainWindow.TreeAddress);
-                    urlString = urlString.Replace(poebuilderTreeO, MainWindow.TreeAddress);
-                    urlString = urlString.Replace(poebuilderTreeWWW, MainWindow.TreeAddress);
-                    urlString = urlString.Replace(poebuilderTreeOWWW, MainWindow.TreeAddress);
-                    tbSkillURL.Text = urlString;
-                    Tree.LoadFromURL(urlString);
-                }
-                else if (tbSkillURL.Text.Contains("tinyurl.com/"))
-                {
-                    var request = (HttpWebRequest)WebRequest.Create(tbSkillURL.Text);
-                    request.AllowAutoRedirect = false;
-                    var response = (HttpWebResponse)request.GetResponse();
-                    var redirUrl = response.Headers["Location"];
-                    tbSkillURL.Text = redirUrl;
+                    var skillUrl = tbSkillURL.Text;
+                    if (skillUrl.Contains("poeurl.com"))
+                    {
+                        skillUrl = skillUrl.Replace("http://poeurl.com/",
+                            "http://poeurl.com/redirect.php?url=");
+                    }
+
+                    var response =
+                        await AwaitAsyncTask(L10n.Message("Resolving shortened tree address"),
+                            new HttpClient().GetAsync(skillUrl, HttpCompletionOption.ResponseHeadersRead));
+                    response.EnsureSuccessStatusCode();
+                    tbSkillURL.Text = response.RequestMessage.RequestUri.ToString();
+
                     LoadBuildFromUrl();
                 }
-                else if (tbSkillURL.Text.Contains("poeurl.com/"))
+                else if (tbSkillURL.Text.Contains("characterName") || tbSkillURL.Text.Contains("accountName"))
                 {
-                    tbSkillURL.Text = tbSkillURL.Text.Replace("http://poeurl.com/",
-                        "http://poeurl.com/redirect.php?url=");
-                    var request = (HttpWebRequest)WebRequest.Create(tbSkillURL.Text);
-                    request.AllowAutoRedirect = false;
-                    var response = (HttpWebResponse)request.GetResponse();
-                    var redirUrl = response.Headers["Location"];
-                    tbSkillURL.Text = redirUrl;
+                    tbSkillURL.Text = Regex.Replace(tbSkillURL.Text, @"\?.*", "");
                     LoadBuildFromUrl();
                 }
                 else
-                    Tree.LoadFromURL(tbSkillURL.Text);
+                {
+                    string[] urls = new string[] {
+                        "https://poebuilder.com/character/",
+                        "http://poebuilder.com/character/",
+                        "https://www.poebuilder.com/character/",
+                        "http://www.poebuilder.com/character/",
+                        "http://pathofexile.com/passive-skill-tree/",
+                        "http://www.pathofexile.com/passive-skill-tree/",
+                        "https://www.pathofexile.com/fullscreen-passive-skill-tree/",
+                        "http://www.pathofexile.com/fullscreen-passive-skill-tree/",
+                        "https://pathofexile.com/fullscreen-passive-skill-tree/",
+                        "http://pathofexile.com/fullscreen-passive-skill-tree/",
+                        "http://cb.poedb.tw/us/passive-skill-tree/",
+                        "http://poedb.tw/us/passive-skill-tree/"
+                    };
+                    var urlString = tbSkillURL.Text;
+                    foreach (string link in urls)
+                    {
+                        urlString = urlString.Replace(link, SkillTree.TreeAddress);
+                    }
+                    if (!urlString.Contains("https://"))
+                        urlString = "https://" + urlString;
+                    tbSkillURL.Text = urlString;
+                    Tree.LoadFromURL(urlString);
+                }
+
 
                 _justLoaded = true;
                 //cleans the default tree on load if 2
@@ -1276,11 +1455,12 @@ namespace POESKillTree.Views
                 UpdateUI();
                 _justLoaded = false;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                MessageBox.Show(this, "The Build you tried to load, is invalid");
+                Popup.Error(L10n.Message("An error occurred while attempting to load Skill tree from URL."), ex.Message);
             }
         }
+
         #endregion
 
         #region Builds - DragAndDrop
@@ -1307,7 +1487,7 @@ namespace POESKillTree.Views
         private void BeginDrag(MouseEventArgs e)
         {
             var listView = lvSavedBuilds;
-            var listViewItem = FindAnchestor<ListViewItem>((DependencyObject)e.OriginalSource);
+            var listViewItem = ((DependencyObject)e.OriginalSource).FindAnchestor<ListViewItem>();
 
             if (listViewItem == null)
                 return;
@@ -1355,7 +1535,7 @@ namespace POESKillTree.Views
             {
                 var name = e.Data.GetData("myFormat");
                 ListView listView = lvSavedBuilds;
-                ListViewItem listViewItem = FindAnchestor<ListViewItem>((DependencyObject)e.OriginalSource);
+                ListViewItem listViewItem = ((DependencyObject)e.OriginalSource).FindAnchestor<ListViewItem>();
 
                 if (listViewItem != null)
                 {
@@ -1406,22 +1586,6 @@ namespace POESKillTree.Views
             }
         }
 
-        // Helper to search up the VisualTree
-        private static T FindAnchestor<T>(DependencyObject current)
-            where T : DependencyObject
-        {
-            do
-            {
-                if (current is T)
-                {
-                    return (T)current;
-                }
-                current = VisualTreeHelper.GetParent(current);
-            }
-            while (current != null);
-            return null;
-        }
-
         #endregion
 
         #region Bottom Bar (Build URL etc)
@@ -1438,7 +1602,7 @@ namespace POESKillTree.Views
 
         private void SearchUpdate()
         {
-            Tree.HighlightNodesBySearch(tbSearch.Text, cbRegEx.IsChecked != null && cbRegEx.IsChecked.Value, true);
+            Tree.HighlightNodesBySearch(tbSearch.Text, cbRegEx.IsChecked != null && cbRegEx.IsChecked.Value, NodeHighlighter.HighlightState.FromSearch);
         }
 
         private void ClearSearch()
@@ -1449,7 +1613,7 @@ namespace POESKillTree.Views
 
         private void tbSkillURL_KeyUp(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter)
+            if (e.Key == Key.Enter && NoAsyncTaskRunning)
                 LoadBuildFromUrl();
         }
 
@@ -1516,11 +1680,11 @@ namespace POESKillTree.Views
             StartDownloadPoeUrl();
         }
 
-        private void StartDownloadPoeUrl()
+        private async void StartDownloadPoeUrl()
         {
             var regx =
                 new Regex(
-                    "http://([\\w+?\\.\\w+])+([a-zA-Z0-9\\~\\!\\@\\#\\$\\%\\^\\&amp;\\*\\(\\)_\\-\\=\\+\\\\\\/\\?\\.\\:\\;\\'\\,]*)?",
+                    "https?://([\\w+?\\.\\w+])+([a-zA-Z0-9\\~\\!\\@\\#\\$\\%\\^\\&amp;\\*\\(\\)_\\-\\=\\+\\\\\\/\\?\\.\\:\\;\\'\\,]*)?",
                     RegexOptions.IgnoreCase);
 
             var matches = regx.Matches(tbSkillURL.Text);
@@ -1530,40 +1694,36 @@ namespace POESKillTree.Views
                 try
                 {
                     var url = matches[0].ToString();
-                    if (url.Length <= 12)
+                    if (!url.ToLower().StartsWith(SkillTree.TreeAddress))
                     {
-                        ShowPoeUrlMessageAndAddToClipboard(url);
+                        return;
                     }
-                    if (!url.ToLower().StartsWith("http") && !url.ToLower().StartsWith("ftp"))
-                    {
-                        url = "http://" + url;
-                    }
-                    var client = new WebClient();
-                    client.DownloadStringCompleted += DownloadCompletedPoeUrl;
-                    client.DownloadStringAsync(new Uri("http://poeurl.com/shrink.php?url=" + url));
-                }
-                catch (Exception)
-                {
-                    MessageBox.Show(this, "Failed to create PoEURL", "poeurl error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
+                    // PoEUrl can't handle https atm.
+                    url = url.Replace("https://", "http://");
 
-        private void DownloadCompletedPoeUrl(Object sender, DownloadStringCompletedEventArgs e)
-        {
-            if (e.Error != null)
-            {
-                MessageBox.Show(this, "Failed to create PoEURL", "poeurl error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                    var result =
+                        await AwaitAsyncTask(L10n.Message("Generating PoEUrl of Skill tree"),
+                            new HttpClient().GetStringAsync("http://poeurl.com/shrink.php?url=" + url));
+                    ShowPoeUrlMessageAndAddToClipboard("http://poeurl.com/" + result.Trim());
+                }
+                catch (Exception ex)
+                {
+                    Popup.Error(L10n.Message("An error occurred while attempting to contact the PoEUrl location."), ex.Message);
+                }
             }
-            ShowPoeUrlMessageAndAddToClipboard("http://poeurl.com/" + e.Result.Trim());
         }
 
         private void ShowPoeUrlMessageAndAddToClipboard(string poeurl)
         {
-            System.Windows.Forms.Clipboard.SetDataObject(poeurl, true);
-            MessageBox.Show(this, "The URL below has been copied to you clipboard: \n" + poeurl, "poeurl Link",
-                MessageBoxButton.OK);
+            try
+            {
+                System.Windows.Forms.Clipboard.SetDataObject(poeurl, true);
+                Popup.Info(L10n.Message("The PoEUrl link has been copied to Clipboard.") + "\n\n" + poeurl);
+            }
+            catch (Exception ex)
+            {
+                Popup.Error(L10n.Message("An error occurred while copying to Clipboard."), ex.Message);
+            }
         }
 
         #endregion
@@ -1575,7 +1735,7 @@ namespace POESKillTree.Views
             var menuItem = sender as MenuItem;
             if (menuItem == null) return;
 
-            SetTheme(menuItem.Header as string);
+            SetTheme(menuItem.Tag as string);
         }
 
         private void SetTheme(string sTheme)
@@ -1592,7 +1752,7 @@ namespace POESKillTree.Views
             var menuItem = sender as MenuItem;
             if (menuItem == null) return;
 
-            SetAccent(menuItem.Header as string);
+            SetAccent(menuItem.Tag as string);
         }
 
         private void SetAccent(string sAccent)
@@ -1613,40 +1773,17 @@ namespace POESKillTree.Views
          *         index 0 containing the Class Name
          *         index 1 containing the Class Start String
          **/
-        private string[] getCurrentClass()
+
+        private string[] GetCurrentClass()
         {
-            if (tbSkillURL.Text.IndexOf("AAAAAgAA") != -1)
+            foreach (var item in CharacterNames.NameToLink)
             {
-                return getAnyClass("Scion");
+                if (tbSkillURL.Text.IndexOf(item.Value, StringComparison.InvariantCulture) != -1)
+                {
+                    return getAnyClass(item.Key);
+                }
             }
-            else if (tbSkillURL.Text.IndexOf("AAAAAgEA") != -1)
-            {
-                return getAnyClass("Marauder");
-            }
-            else if (tbSkillURL.Text.IndexOf("AAAAAgIA") != -1)
-            {
-                return getAnyClass("Ranger");
-            }
-            else if (tbSkillURL.Text.IndexOf("AAAAAgMA") != -1)
-            {
-                return getAnyClass("Witch");
-            }
-            else if (tbSkillURL.Text.IndexOf("AAAAAgQA") != -1)
-            {
-                return getAnyClass("Duelist");
-            }
-            else if (tbSkillURL.Text.IndexOf("AAAAAgUA") != -1)
-            {
-                return getAnyClass("Templar");
-            }
-            else if (tbSkillURL.Text.IndexOf("AAAAAgYA") != -1)
-            {
-                return getAnyClass("Shadow");
-            }
-            else
-            {
-                return getAnyClass("ERROR");
-            }
+            return getAnyClass("ERROR");
         }
 
         /**
@@ -1658,54 +1795,19 @@ namespace POESKillTree.Views
         private string[] getAnyClass(string className)
         {
             string[] array = new string[2];
-            if (className == "Scion")
+            string classStartString;
+            if (CharacterNames.NameToLink.TryGetValue(className, out classStartString))
             {
-                array[0] = "Scion";
-                array[1] = "AAAAAgAA";
-                return array;
-            }
-            else if (className == "Marauder")
-            {
-                array[0] = "Marauder";
-                array[1] = "AAAAAgEA";
-                return array;
-            }
-            else if (className == "Ranger")
-            {
-                array[0] = "Ranger";
-                array[1] = "AAAAAgIA";
-                return array;
-            }
-            else if (className == "Witch")
-            {
-                array[0] = "Witch";
-                array[1] = "AAAAAgMA";
-                return array;
-            }
-            else if (className == "Duelist")
-            {
-                array[0] = "Duelist";
-                array[1] = "AAAAAgQA";
-                return array;
-            }
-            else if (className == "Templar")
-            {
-                array[0] = "Templar";
-                array[1] = "AAAAAgUA";
-                return array;
-            }
-            else if (className == "Shadow")
-            {
-                array[0] = "Shadow";
-                array[1] = "AAAAAgYA";
-                return array;
+                array[0] = className;
+                array[1] = classStartString;
             }
             else
             {
                 array[0] = "ERROR";
                 array[1] = "ERROR";
-                return array;
             }
+
+            return array;
         }
         #endregion
 
@@ -1752,7 +1854,7 @@ namespace POESKillTree.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "Unable to load the saved builds.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Popup.Error(L10n.Message("An error occurred while attempting to load saved builds."), ex.Message);
             }
         }
 
@@ -1801,6 +1903,254 @@ namespace POESKillTree.Views
         private void ToggleTreeComparison_Click(object sender, RoutedEventArgs e)
         {
             lvSavedBuilds_SelectionChanged(null, null);
+        }
+
+        private void Menu_RedownloadItemAssets(object sender, RoutedEventArgs e)
+        {
+            string sMessageBoxText = L10n.Message("The existing Skill Item assets will be deleted and new assets will be downloaded.")
+                       + "\n\n" + L10n.Message("Do you want to continue?");
+
+            var rsltMessageBox = Popup.Ask(sMessageBoxText, MessageBoxImage.Warning);
+
+            string appDataPath = AppData.GetFolder(true);
+            switch (rsltMessageBox)
+            {
+                case MessageBoxResult.Yes:
+                    if (Directory.Exists(Path.Combine(appDataPath, "Data")))
+                    {
+                        try
+                        {
+                            if (Directory.Exists(Path.Combine(appDataPath, "DataBackup")))
+                                Directory.Delete("DataBackup", true);
+                            Directory.Move(Path.Combine(appDataPath, "Data"), Path.Combine(appDataPath, "DataBackup"));
+
+
+                            var bases = new List<ItemBase>();
+                            var images = new List<Tuple<string, string>>();
+
+                            StartLoadingWindow(L10n.Message("Downloading Item assets"));
+                            UpdateLoadingWindow(0, 3);
+                            ItemAssetDownloader.ExtractJewelry(bases, images);
+                            UpdateLoadingWindow(1, 3);
+                            ItemAssetDownloader.ExtractArmors(bases, images);
+                            UpdateLoadingWindow(2, 3);
+                            ItemAssetDownloader.ExtractWeapons(bases, images);
+                            UpdateLoadingWindow(3, 3);
+
+                            new System.Xml.Linq.XElement("ItemBaseList", bases.Select(b => b.Serialize())).Save(Path.Combine(AppData.GetFolder(@"Data\Equipment"), "Itemlist.xml"));
+
+                            var imgroups = images.GroupBy(t => t.Item2).ToArray();
+
+                            UpdateLoadingWindow(0, imgroups.Length);
+
+                            var dir = AppData.GetFolder(@"Data\Equipment\Assets");
+                            using (var client = new WebClient())
+                            {
+                                for (int i = 0; i < imgroups.Length; i++)
+                                {
+                                    using (var ms = new MemoryStream(client.DownloadData(imgroups[i].Key)))
+                                    {
+                                        PngBitmapDecoder dec = new PngBitmapDecoder(ms, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.Default);
+
+                                        var image = dec.Frames[0];
+                                        var cropped = new CroppedBitmap(image, new Int32Rect(4, 4, image.PixelWidth - 8, image.PixelHeight - 8));
+                                        PngBitmapEncoder encoder = new PngBitmapEncoder();
+                                        encoder.Frames.Add(BitmapFrame.Create(cropped));
+
+                                        using (var m = new MemoryStream())
+                                        {
+                                            encoder.Save(m);
+
+                                            foreach (var item in imgroups[i])
+                                            {
+                                                using (var f = File.Create(Path.Combine(dir, item.Item1 + ".png")))
+                                                {
+                                                    m.Seek(0, SeekOrigin.Begin);
+                                                    m.CopyTo(f);
+                                                }
+
+                                            }
+                                        }
+
+                                        UpdateLoadingWindow(i + 1, imgroups.Length);
+                                    }
+                                }
+                            }
+
+                            foreach (var file in new DirectoryInfo(Path.Combine(appDataPath, @"DataBackup")).GetFiles())
+                                file.CopyTo(Path.Combine(Path.Combine(appDataPath, @"Data"), file.Name));
+                            
+                            File.Copy(Path.Combine(AppData.GetFolder(@"DataBackup\Equipment"), "Affixlist.xml"), Path.Combine(AppData.GetFolder(@"Data\Equipment"), "Affixlist.xml"));
+                            
+                            Directory.Move(Path.Combine(appDataPath, @"DataBackup\Assets"), Path.Combine(appDataPath, @"Data\Assets"));
+                            if (Directory.Exists(Path.Combine(appDataPath, "DataBackup")))
+                                Directory.Delete(Path.Combine(appDataPath, "DataBackup"), true);
+
+                            CloseLoadingWindow();
+                        }
+                        catch (Exception ex)
+                        {
+                            if (Directory.Exists(Path.Combine(appDataPath, "Data")))
+                                Directory.Delete(Path.Combine(appDataPath, "Data"), true);
+                            try
+                            {
+                                CloseLoadingWindow();
+                            }
+                            catch (Exception)
+                            {
+                                //Nothing
+                            }
+                            Directory.Move(Path.Combine(appDataPath, "DataBackup"), Path.Combine(appDataPath, "Data"));
+                            Popup.Error(L10n.Message("Error while downloading assets."));
+                        }
+                    }
+                    break;
+
+                case MessageBoxResult.No:
+                    //Do nothing
+                    break;
+            }
+        }
+
+        private void Button_Craft_Click(object sender, RoutedEventArgs e)
+        {
+            var w = new CraftWindow() { Owner = this };
+            if (w.ShowDialog() == true)
+            {
+                var item = w.Item;
+                if (PersistentData.StashItems.Count > 0)
+                    item.Y = PersistentData.StashItems.Max(i => i.Y + i.Height);
+
+                Stash.Items.Add(item);
+
+                Stash.AddHighlightRange(new IntRange() { From = item.Y, Range = item.Height });
+                Stash.asBar.Value = item.Y;
+            }
+        }
+
+        private void deleteRect_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ItemVisualizer)) && (e.AllowedEffects & DragDropEffects.Move) != 0)
+            {
+                e.Effects = DragDropEffects.Move;
+                e.Handled = true;
+            }
+        }
+
+        private void deleteRect_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ItemVisualizer)) && (e.AllowedEffects & DragDropEffects.Move) != 0)
+            {
+                e.Effects = DragDropEffects.Move;
+
+                var d = e.Data.GetData(typeof(ItemVisualizer)) as ItemVisualizer;
+
+                var st = d.FindAnchestor<Stash>();
+                if (st != null)
+                {
+                    st.RemoveItem(d.Item);
+                }
+                else
+                {
+                    d.Item = null;
+                }
+                deleteRect.Opacity = 0.0;
+            }
+        }
+
+        private void deleteRect_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ItemVisualizer)) && (e.AllowedEffects & DragDropEffects.Move) != 0)
+            {
+                deleteRect.Opacity = 0.3;
+            }
+        }
+
+        private void deleteRect_DragLeave(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(ItemVisualizer)) && (e.AllowedEffects & DragDropEffects.Move) != 0)
+            {
+                deleteRect.Opacity = 0.0;
+            }
+        }
+
+        private void Menu_ImportStash(object sender, RoutedEventArgs e)
+        {
+            var diw = new DownloadStashWindow(_persistentData.CurrentBuild.CharacterName, _persistentData.CurrentBuild.League) { Owner = this };
+            diw.ShowDialog();
+            _persistentData.CurrentBuild.CharacterName = diw.GetCharacterName();
+            _persistentData.CurrentBuild.League = diw.GetAccountName();
+        }
+
+        #region Async task helpers
+
+        private void AsyncTaskStarted(string infoText)
+        {
+            NoAsyncTaskRunning = false;
+            TitleStatusTextBlock.Text = infoText;
+            TitleStatusButton.Visibility = Visibility.Visible;
+        }
+
+        private void AsyncTaskCompleted()
+        {
+            TitleStatusButton.Visibility = Visibility.Hidden;
+
+            NoAsyncTaskRunning = true;
+        }
+
+        private async Task<TResult> AwaitAsyncTask<TResult>(string infoText, Task<TResult> task)
+        {
+            AsyncTaskStarted(infoText);
+            try
+            {
+                return await task;
+            }
+            finally
+            {
+                AsyncTaskCompleted();
+            }
+        }
+
+        private async Task AwaitAsyncTask(string infoText, Task task)
+        {
+            AsyncTaskStarted(infoText);
+            try
+            {
+                await task;
+            }
+            finally
+            {
+                AsyncTaskCompleted();
+            }
+        }
+
+        #endregion
+
+        public override IWindowPlacementSettings GetWindowPlacementSettings()
+        {
+            var settings = base.GetWindowPlacementSettings();
+            if (WindowPlacementSettings == null)
+            {
+                // Settings just got created, give them a proper SettingsProvider.
+                var appSettings = settings as ApplicationSettingsBase;
+                if (appSettings == null)
+                {
+                    // Nothing we can do here.
+                    return settings;
+                }
+                var provider = new CustomSettingsProvider(appSettings.SettingsKey);
+                // This may look ugly, but it is needed and nulls are the only parameter
+                // Initialize is ever called with by anything.
+                provider.Initialize(null, null);
+                appSettings.Providers.Add(provider);
+                // Change the provider for each SettingsProperty.
+                foreach (var property in appSettings.Properties)
+                {
+                    ((SettingsProperty) property).Provider = provider;
+                }
+                appSettings.Reload();
+            }
+            return settings;
         }
     }
 }

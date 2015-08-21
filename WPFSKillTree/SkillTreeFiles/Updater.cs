@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using Raven.Json.Linq;
-using Ionic.Zip;
+using System.Text.RegularExpressions;
+using Microsoft.Win32;
+using POESKillTree.Localization;
+using Newtonsoft.Json.Linq;
+using POESKillTree.Utils;
 
 namespace POESKillTree.SkillTreeFiles
 {
@@ -17,20 +21,24 @@ namespace POESKillTree.SkillTreeFiles
     {
         // Git API URL to fetch releases (the first one is latest one).
         private static readonly string GitAPILatestReleaseURL = "https://api.github.com/repos/EmmittJ/PoESkillTree/releases";
+        // The language value name of Uninstall registry key.
+        private const string InnoSetupUninstallLanguageValue = "Inno Setup: Language";
+        // The suffix added to AppId to form Uninstall registry key for an application.
+        private const string InnoSetupUninstallAppIdSuffix = "_is1";
         // The flag whether check for updates was done and was successful.
         public static bool IsChecked = false;
         // The flag whether download is complete.
         public static bool IsDownloaded { get { return Latest != null && Latest.IsDownloaded; } }
         // The flag whether download is in progress.
         public static bool IsDownloading { get { return Latest != null && Latest.IsDownloading; } }
-        // The flag whether installation completed.
-        public static bool IsInstalled = false;
         // Latest release.
         private static Release Latest;
+        // Asset content type of package.
+        private const string PackageContentType = "application/octet-stream";
+        // Regular expression for a released package file name.
+        private static readonly Regex RePackage = new Regex(@".*\.exe$", RegexOptions.IgnoreCase);
         // HTTP request timeout for release checks and downloads (in seconds).
         private const int REQUEST_TIMEOUT = 15;
-        // Work directory of update process (relative to installation root).
-        private static readonly string WorkDir = ".update";
 
         // Release informations.
         public class Release
@@ -41,12 +49,20 @@ namespace POESKillTree.SkillTreeFiles
             public string Name;
             // The description.
             public string Description;
+            // The destination file for package download.
+            private string DownloadFile;
             // The flag whether release was downloaded.
-            public bool IsDownloaded { get { return Client == null && TemporaryFile != null; } }
+            public bool IsDownloaded { get { return Client == null && DownloadFile != null; } }
             // The flag whether download is still in progress.
             public bool IsDownloading { get { return Client != null; } }
-            // The temporary file for package download.
-            private string TemporaryFile;
+            // The flag whether installation was successfuly started.
+            public bool IsInstalled;
+            // The flag whether release is a pre-release.
+            public bool IsPrerelease;
+            // The flag whether release is an update of this product.
+            public bool IsUpdate;
+            // The file name of package.
+            public string PackageFileName;
             // The URI of release package.
             public Uri URI;
             // The version string.
@@ -58,7 +74,7 @@ namespace POESKillTree.SkillTreeFiles
                 {
                     Dispose();
                 }
-                catch (Exception e) {}
+                catch {}
             }
 
             // Cancels download.
@@ -79,25 +95,15 @@ namespace POESKillTree.SkillTreeFiles
                     Client = null;
                 }
 
-                // Delete temporary file.
-                if (TemporaryFile != null)
+                // Delete download file.
+                if (DownloadFile != null)
                 {
                     try
                     {
-                        File.Delete(TemporaryFile);
-                        TemporaryFile = null;
+                        File.Delete(DownloadFile);
+                        DownloadFile = null;
                     }
-                    catch (Exception e) { }
-                }
-
-                // Delete work directory.
-                if (Directory.Exists(WorkDir))
-                {
-                    try
-                    {
-                        Directory.Delete(WorkDir, true);
-                    }
-                    catch (Exception e) {}
+                    catch (Exception) { } // File won't be deleted while setup is running.
                 }
             }
 
@@ -107,9 +113,9 @@ namespace POESKillTree.SkillTreeFiles
             public void Download(AsyncCompletedEventHandler completedHandler, DownloadProgressChangedEventHandler progressHandler)
             {
                 if (Client != null)
-                    throw new UpdaterException("Download already in progress");
-                if (TemporaryFile != null)
-                    throw new UpdaterException("Download already completed");
+                    throw new UpdaterException(L10n.Message("Download already in progress"));
+                if (DownloadFile != null)
+                    throw new UpdaterException(L10n.Message("Download already completed"));
 
                 try
                 {
@@ -121,11 +127,11 @@ namespace POESKillTree.SkillTreeFiles
                     if (progressHandler != null)
                         Client.DownloadProgressChanged += new DownloadProgressChangedEventHandler(progressHandler);
 
-                    // Create temporary file.
-                    TemporaryFile = Path.GetTempFileName();
+                    // Create download file.
+                    DownloadFile = Path.Combine(Path.GetTempPath(), PackageFileName);
 
                     // Start download.
-                    Client.DownloadFileAsync(URI, TemporaryFile);
+                    Client.DownloadFileAsync(URI, DownloadFile);
                 }
                 catch (Exception e)
                 {
@@ -145,40 +151,41 @@ namespace POESKillTree.SkillTreeFiles
                 if (e.Cancelled || e.Error != null) Dispose();
             }
 
-            // Returns source directory of an update.
-            private string GetSourceDir()
-            {
-                DirectoryInfo work = new DirectoryInfo(WorkDir);
-                DirectoryInfo[] dirs = work.GetDirectories();
-
-                return dirs.Length == 0 ? null : dirs[0].FullName;
-            }
-
             /* Installs release.
              * Throws UpdaterException if error occurs.
              */
             public void Install()
             {
                 if (Client != null)
-                    throw new UpdaterException("Download still in progress");
+                    throw new UpdaterException(L10n.Message("Download still in progress"));
 
-                if (TemporaryFile == null)
-                    throw new UpdaterException("No package downloaded");
+                if (DownloadFile == null)
+                    throw new UpdaterException(L10n.Message("No package downloaded"));
 
                 try
                 {
-                    // Create empty work directory.
-                    Directory.CreateDirectory(WorkDir);
+                    Process setup = new Process();
+                    setup.StartInfo.FileName = DownloadFile;
+                    setup.StartInfo.WorkingDirectory = Path.GetDirectoryName(DownloadFile);
+                    setup.StartInfo.CreateNoWindow = true;
+                    setup.StartInfo.UseShellExecute = false;
 
-                    // Extract package.
-                    ZipFile zip = ZipFile.Read(TemporaryFile);
-                    zip.ExtractAll(WorkDir);
+                    // Perform silent setup if release is an update.
+                    if (IsUpdate)
+                    {
+                        string arguments = "/SP- /SILENT /NOICONS /LANG=" + GetSetupLanguage();
 
-                    // Copy content of first directory found in work directory to installation root.
-                    string sourceDir = GetSourceDir();
-                    if (sourceDir == null)
-                        throw new UpdaterException("Invalid package content");
-                    CopyTo(sourceDir, ".");
+                        // If running in portable mode, use our program directory as destination folder.
+                        if (AppData.IsPortable)
+                            arguments += " /PORTABLE=1 \"/DIR=" + AppData.ProgramDirectory + "\"";
+
+                        setup.StartInfo.Arguments = arguments;
+                    }
+
+                    setup.Start();
+
+                    // Indicate that installation is running.
+                    IsInstalled = true;
 
                     Dispose();
                 }
@@ -218,19 +225,30 @@ namespace POESKillTree.SkillTreeFiles
 
         /* Checks for updates and returns release informations when there is newer one.
          * Returns null if there is no newer release.
+         * If Prerelease argument is true, it will return also Pre-release, otherwise Pre-releases are ignored.
          * An existing last checked release will be discarded.
          * Throws UpdaterException if error occurs.
          */
-        public static Release CheckForUpdates()
+        public static Release CheckForUpdates(bool Prerelease = true)
         {
             if (Latest != null)
             {
                 if (Latest.IsDownloading)
-                    throw new UpdaterException("Download already in progress");
-                Latest.Dispose();
+                    throw new UpdaterException(L10n.Message("Download already in progress"));
+
+                // If release was installed, report no update.
+                if (Latest.IsInstalled) return null;
+
+                Dispose();
             }
-            Latest = null;
-            IsChecked = IsInstalled = false;
+
+            if (IsNewerProductInstalled())
+            {
+                // Newer product is installed, there is no update.
+                IsChecked = true;
+
+                return null;
+            }
 
             var webClient = new UpdaterWebClient();
             webClient.Encoding = Encoding.UTF8;
@@ -238,35 +256,78 @@ namespace POESKillTree.SkillTreeFiles
             try
             {
                 string json = webClient.DownloadString(GitAPILatestReleaseURL);
+                JArray releases = JArray.Parse(json);
+                if (releases.Count < 1)
+                    throw new UpdaterException(L10n.Message("No release found"));
 
-                RavenJArray releases = RavenJArray.Parse(json);
-                if (releases.Length < 1)
-                    throw new UpdaterException("No release found");
+                Version current = GetCurrentVersion(); // Current version (tag).
 
-                RavenJObject latest = (RavenJObject)releases[0];
-                RavenJArray assets = (RavenJArray)latest["assets"];
-                if (assets.Length < 1)
-                    throw new UpdaterException("Package for release is missing");
-
-                string current = GetCurrentVersion();
-                string tag = latest["tag_name"].Value<string>();
-                if (tag == current)
+                // Iterate thru avialable releases.
+                foreach (JObject release in (JArray)releases)
                 {
+                    // Drafts are not returned by API, but just in case...
+                    bool draft = release["draft"].Value<bool>();
+                    if (draft) continue; // Ignore drafts.
+
+                    // Check if there are assets attached.
+                    JArray assets = (JArray)release["assets"];
+                    if (assets.Count < 1) continue; // No assets, ignore it.
+
+                    // Compare release tag with our version (tag).
+                    string tag = release["tag_name"].Value<string>();
+                    Version version = new Version(tag);
+                    if (version.CompareTo(current) <= 0)
+                    {
+                        // Same or older version.
+                        IsChecked = true;
+
+                        return null;
+                    }
+
+                    // Check if it is pre-release and we want to update to it.
+                    bool prerelease = release["prerelease"].Value<bool>();
+                    if (prerelease && !Prerelease) continue; // Found unwanted pre-release, ignore it.
+
+                    // Find release package.
+                    string fileName = null;
+                    JObject pkgAsset = null;
+                    foreach (JObject asset in assets)
+                    {
+                        // Check if asset upload completed.
+                        if (asset["state"].Value<string>() != "uploaded")
+                            continue;
+
+                        string content_type = asset["content_type"].Value<string>();
+                        if (content_type != PackageContentType) continue; // Not a package, ignore it.
+
+                        fileName = asset["name"].Value<string>();
+                        Match m = RePackage.Match(fileName);
+                        if (m.Success)
+                        {
+                            // Found release package.
+                            pkgAsset = asset;
+                            break;
+                        }
+                    }
+                    if (pkgAsset == null) continue; // No package found.
+
+                    // This is newer release.
                     IsChecked = true;
+                    Latest = new Release
+                    {
+                        Name = release["name"].Value<string>(),
+                        Description = release["body"].Value<string>(),
+                        IsPrerelease = prerelease,
+                        // A release is an update, if file name starts with our PackageName.
+                        IsUpdate = fileName.StartsWith(GetPackageName(Properties.Version.ProductName) + "-"),
+                        PackageFileName = fileName,
+                        Version = tag,
+                        URI = new Uri(pkgAsset["browser_download_url"].Value<string>())
+                    };
 
-                    return null;
+                    // We are done, exit loop.
+                    break;
                 }
-
-                string url = ((RavenJObject)assets[0])["browser_download_url"].Value<string>();
-
-                IsChecked = true;
-                Latest = new Release
-                {
-                    Name = latest["name"].Value<string>(),
-                    Description = latest["body"].Value<string>(),
-                    Version = tag,
-                    URI = new Uri(url)
-                };
             }
             catch (WebException e)
             {
@@ -283,49 +344,18 @@ namespace POESKillTree.SkillTreeFiles
             return Latest;
         }
 
-        // Copies files or directories to target directory recursively.
-        public static void CopyTo(string sourcePath, string targetPath)
-        {
-            if (!Directory.Exists(targetPath))
-                throw new DirectoryNotFoundException("No such directory: " + targetPath);
-
-            if (File.Exists(sourcePath))
-            {
-                FileInfo src = new FileInfo(sourcePath);
-                src.CopyTo(Path.Combine(targetPath, src.Name), true);
-            }
-            else if (Directory.Exists(sourcePath))
-            {
-                DirectoryInfo src = new DirectoryInfo(sourcePath);
-
-                foreach (FileInfo file in src.GetFiles())
-                    file.CopyTo(Path.Combine(targetPath, file.Name), true);
-
-                foreach (DirectoryInfo dir in src.GetDirectories())
-                {
-                    string subdir = Path.Combine(targetPath, dir.Name);
-                    if (!Directory.Exists(subdir))
-                        Directory.CreateDirectory(subdir);
-
-                    CopyTo(dir.FullName, subdir);
-                }
-            }
-            else
-                throw new FileNotFoundException("No such file or directory: " + sourcePath);
-        }
-
         // Dispose of current update process.
         public static void Dispose()
         {
             if (Latest != null)
             {
                 if (Latest.IsDownloading)
-                    throw new UpdaterException("Download still in progress");
+                    throw new UpdaterException(L10n.Message("Download still in progress"));
                 Latest.Dispose();
                 Latest = null;
             }
 
-            IsChecked = IsInstalled = false;
+            IsChecked = false;
         }
 
         /* Downloads latest release.
@@ -336,22 +366,54 @@ namespace POESKillTree.SkillTreeFiles
             if (Latest != null)
             {
                 if (Latest.IsDownloaded || Latest.IsDownloading)
-                    throw new UpdaterException("Download completed or still in progress");
+                    throw new UpdaterException(L10n.Message("Download completed or still in progress"));
 
                 Latest.Download(completedHandler, progressHandler);
             }
         }
 
         // Returns current version.
-        public static string GetCurrentVersion()
+        public static Version GetCurrentVersion()
         {
-            return Properties.Version.ProductVersion;
+            return new Version(Properties.Version.ProductVersion);
         }
 
         // Return latest release, or null if there is none or it wasn't checked for yet.
         public static Release GetLatestRelease()
         {
             return Latest;
+        }
+
+        // Returns PackageName according to ProductName.
+        public static string GetPackageName(string productName)
+        {
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+                if (productName.Contains(invalid))
+                    throw new Exception("ProductName contains invalid character(s)");
+
+            // Remove space characters.
+            return productName.Replace(" ", string.Empty);
+        }
+
+        // Returns language chosen at last setup.
+        public static string GetSetupLanguage()
+        {
+            if (AppData.IsPortable)
+            {
+                return AppData.GetIniValue("Setup", "Language");
+            }
+            else
+                using (RegistryKey uninstallKey = Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\" + Properties.Version.AppId + InnoSetupUninstallAppIdSuffix))
+                {
+                    if (uninstallKey == null)
+                        throw new Exception(L10n.Message("The application is not correctly installed"));
+
+                    string language = uninstallKey.GetValue(InnoSetupUninstallLanguageValue) as string;
+                    if (!string.IsNullOrEmpty(language))
+                        return language;
+                }
+
+            return null;
         }
 
         /* Installs downloaded release.
@@ -362,15 +424,42 @@ namespace POESKillTree.SkillTreeFiles
             if (Latest != null)
             {
                 if (Latest.IsDownloading)
-                    throw new UpdaterException("Download still in progress");
+                    throw new UpdaterException(L10n.Message("Download still in progress"));
                 if (!Latest.IsDownloaded)
-                    throw new UpdaterException("No package downloaded");
+                    throw new UpdaterException(L10n.Message("No package downloaded"));
 
                 // If installation fails (exception will be thrown), latest release will be in ready to re-download state.
                 Latest.Install();
-                Latest = null;
-                IsInstalled = true;
             }
+        }
+
+        // Returns true if newer product is installed.
+        private static bool IsNewerProductInstalled()
+        {
+            Version current = new Version(Properties.Version.ProductVersion);
+
+            using (RegistryKey uninstallKey = Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall"))
+            {
+                foreach (string name in uninstallKey.GetSubKeyNames())
+                {
+                    using (RegistryKey key = uninstallKey.OpenSubKey(name))
+                    {
+                        string productName = key.GetValue("DisplayName") as string;
+                        if (string.IsNullOrEmpty(productName)) continue; // Missing DisplayName value.
+
+                        if (!productName.ToLowerInvariant().Contains("poeskilltree")) continue; // Not our application.
+
+                        if (productName != Properties.Version.ProductName)
+                        {
+                            Version version = new Version(key.GetValue("DisplayVersion") as string);
+                            if (version.CompareTo(current) > 0)
+                                return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
         // Restarts application.

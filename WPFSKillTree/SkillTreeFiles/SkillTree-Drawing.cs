@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using HighlightState = POESKillTree.SkillTreeFiles.NodeHighlighter.HighlightState;
+using POESKillTree.Views;
 
 namespace POESKillTree.SkillTreeFiles
 {
@@ -57,6 +58,7 @@ namespace POESKillTree.SkillTreeFiles
         public DrawingVisual picSkillIconLayer;
         public DrawingVisual picActiveSkillIconLayer;
         public DrawingVisual picSkillSurround;
+        public DrawingVisual picJewelHighlight;
 
 
         public DrawingVisual picSkillSurroundHighlight;
@@ -77,6 +79,7 @@ namespace POESKillTree.SkillTreeFiles
             SkillTreeVisual.Children.Add(picSkillSurround);
             SkillTreeVisual.Children.Add(picFaces);
             SkillTreeVisual.Children.Add(picHighlights);
+            SkillTreeVisual.Children.Add(picJewelHighlight);
         }
 
         #endregion
@@ -84,6 +87,10 @@ namespace POESKillTree.SkillTreeFiles
         public void ClearPath()
         {
             picPathOverlay.RenderOpen().Close();
+        }
+        public void ClearJewelHighlight()
+        {
+            picJewelHighlight.RenderOpen().Close();
         }
 
         private void DrawBackgroundLayer()
@@ -108,7 +115,7 @@ namespace POESKillTree.SkillTreeFiles
                 backgroundBrush.TileMode = TileMode.Tile;
                 backgroundBrush.Viewport = new Rect(0, 0,
                     6 * backgroundBrush.ImageSource.Width / TRect.Width,
-                    6 * backgroundBrush.ImageSource.Height / TRect.Width);
+                    6 * backgroundBrush.ImageSource.Height / TRect.Height);
                 drawingContext.DrawRectangle(backgroundBrush, null, TRect);
 
                 var topGradient = new LinearGradientBrush();
@@ -195,7 +202,7 @@ namespace POESKillTree.SkillTreeFiles
                 for (int i = 0; i < CharName.Count; i++)
                 {
                     string s = CharName[i];
-                    Vector2D pos = Skillnodes.First(nd => nd.Value.Name.ToUpper() == s.ToUpper()).Value.Position;
+                    Vector2D pos = Skillnodes.First(nd => nd.Value.Name.ToUpperInvariant() == s).Value.Position;
                     dc.DrawRectangle(StartBackgrounds[false].Value, null,
                         new Rect(
                             pos - new Vector2D(StartBackgrounds[false].Key.Width, StartBackgrounds[false].Key.Height),
@@ -235,18 +242,50 @@ namespace POESKillTree.SkillTreeFiles
         public void DrawHighlights(NodeHighlighter nh)
         {
             var hpen = new Pen(Brushes.White, 20);
+            var crossPen = new Pen(Brushes.Red, 20);
+            var checkPen = new Pen(Brushes.Lime, 20);
             using (DrawingContext dc = picHighlights.RenderOpen())
             {
                 foreach (var pair in nh.nodeHighlights)
                 {
                     // TODO: Make more elegant? Needs profiling.
                     HighlightState hs = pair.Value;
-                    byte red = (byte)(hs.HasFlag(HighlightState.FromSearch) ? 255 : 0);
-                    byte green = (byte)(hs.HasFlag(HighlightState.FromAttrib) ? 255 : 0);
-                    byte blue = (byte)(hs.HasFlag(HighlightState.FromNode) ? 255 : 0);
-                    hpen = new Pen(new SolidColorBrush(Color.FromRgb(red, green, blue)), 20);
 
-                    dc.DrawEllipse(null, hpen, pair.Key.Position, 80, 80);
+                    // These should not appear together, so not checking for their conjunction.
+                    if (hs != HighlightState.Crossed && hs != HighlightState.Checked)
+                    {
+                        // If it has FromHover, don't mix it with the other highlights.
+                        if (hs.HasFlag(HighlightState.FromHover))
+                        {
+                            hpen = new Pen(Brushes.DodgerBlue, 20);
+                        }
+                        else
+                        {
+                            byte red = (byte)(hs.HasFlag(HighlightState.FromSearch) ? 255 : 0);
+                            byte green = (byte)(hs.HasFlag(HighlightState.FromAttrib) ? 255 : 0);
+                            hpen = new Pen(new SolidColorBrush(Color.FromRgb(red, green, 0)), 20);
+                        }
+
+                        dc.DrawEllipse(null, hpen, pair.Key.Position, 80, 80);
+                    }
+
+                    var x = pair.Key.Position.X;
+                    var y = pair.Key.Position.Y;
+
+                    if (hs.HasFlag(HighlightState.Checked))
+                    {
+                        // Checked nodes get highlighted with two green lines resembling a check mark.
+                        // TODO a better looking check mark
+                        dc.DrawLine(checkPen, new Point(x - 10, y + 50), new Point(x - 50, y + 20));
+                        dc.DrawLine(checkPen, new Point(x + 50, y - 50), new Point(x - 22, y + 52));
+                    }
+
+                    if (hs.HasFlag(HighlightState.Crossed))
+                    {
+                        // Crossed nodes get highlighted with two crossing red lines.
+                        dc.DrawLine(crossPen, new Point(x + 50, y + 70), new Point(x - 50, y - 70));
+                        dc.DrawLine(crossPen, new Point(x + 50, y - 70), new Point(x - 50, y + 70));
+                    }
                 }
             }
         }
@@ -296,7 +335,7 @@ namespace POESKillTree.SkillTreeFiles
                     foreach (ushort skillNode in HighlightedNodes)
                     {
                         Vector2D pos = (Skillnodes[skillNode].Position);
-
+                        
                         if (Skillnodes[skillNode].IsNotable)
                         {
                             dc.DrawRectangle(NodeSurroundHighlightBrush[3].Value, null,
@@ -316,6 +355,14 @@ namespace POESKillTree.SkillTreeFiles
                         else if (Skillnodes[skillNode].IsMastery)
                         {
                             //Needs to be here so that "Masteries" (Middle images of nodes) don't get anything drawn around them.
+                        }
+                        else if (Skillnodes[skillNode].IsJewelSocket)
+                        {
+                            dc.DrawRectangle(NodeSurroundHighlightBrush[6].Value, null,
+                                new Rect((int)pos.X - NodeSurroundBrush[6].Key.Width * factor,
+                                    (int)pos.Y - NodeSurroundBrush[6].Key.Height * factor,
+                                    NodeSurroundBrush[6].Key.Width * 2 * factor,
+                                    NodeSurroundBrush[6].Key.Height * 2 * factor));
                         }
                         else
                             dc.DrawRectangle(NodeSurroundHighlightBrush[0].Value, null,
@@ -375,6 +422,14 @@ namespace POESKillTree.SkillTreeFiles
                     {
                         //Needs to be here so that "Masteries" (Middle images of nodes) don't get anything drawn around them.
                     }
+                    else if (Skillnodes[skillNode].IsJewelSocket)
+                    {
+                        dc.DrawRectangle(NodeSurroundBrush[6].Value, null,
+                            new Rect((int)pos.X - NodeSurroundBrush[6].Key.Width,
+                                (int)pos.Y - NodeSurroundBrush[6].Key.Height,
+                                NodeSurroundBrush[6].Key.Width * 2,
+                                NodeSurroundBrush[6].Key.Height * 2));
+                    }
                     else
                         dc.DrawRectangle(NodeSurroundBrush[0].Value, null,
                             new Rect((int)pos.X - NodeSurroundBrush[0].Key.Width,
@@ -412,6 +467,14 @@ namespace POESKillTree.SkillTreeFiles
                     else if (Skillnodes[skillNode].IsMastery)
                     {
                         //Needs to be here so that "Masteries" (Middle images of nodes) don't get anything drawn around them.
+                    }
+                    else if (Skillnodes[skillNode].IsJewelSocket)
+                    {
+                        dc.DrawRectangle(NodeSurroundBrush[7].Value, null,
+                            new Rect((int)pos.X - NodeSurroundBrush[7].Key.Width,
+                                (int)pos.Y - NodeSurroundBrush[7].Key.Height,
+                                NodeSurroundBrush[7].Key.Width * 2,
+                                NodeSurroundBrush[7].Key.Height * 2));
                     }
                     else
                         dc.DrawRectangle(NodeSurroundBrush[1].Value, null,
@@ -526,15 +589,27 @@ namespace POESKillTree.SkillTreeFiles
             {
                 foreach (string faceName in FaceNames)
                 {
-                    var bi = ImageHelper.OnLoadBitmapImage(new Uri("Data\\Assets\\" + faceName + ".png", UriKind.Relative));
+                    var bi = ImageHelper.OnLoadBitmapImage(new Uri(SkillTree.AssetsFolderPath + faceName + ".png", UriKind.Absolute));
                     _FacesBrush.Add(new KeyValuePair<Rect, ImageBrush>(new Rect(0, 0, bi.PixelWidth, bi.PixelHeight),
                         new ImageBrush(bi)));
                 }
 
-                var bi2 = ImageHelper.OnLoadBitmapImage(new Uri("Data\\Assets\\PSStartNodeBackgroundInactive.png", UriKind.Relative));
-                _StartBackgrounds.Add(false,
-                    (new KeyValuePair<Rect, ImageBrush>(new Rect(0, 0, bi2.PixelWidth, bi2.PixelHeight),
-                        new ImageBrush(bi2))));
+                var bi2 = ImageHelper.OnLoadBitmapImage(new Uri(SkillTree.AssetsFolderPath + "PSStartNodeBackgroundInactive.png", UriKind.Absolute));
+                if (_StartBackgrounds.ContainsKey(false))
+                {
+                    if (!_StartBackgrounds[false].Key.Equals(new Rect(0, 0, bi2.PixelWidth, bi2.PixelHeight)))
+                    {
+                        _StartBackgrounds.Add(false,
+                            (new KeyValuePair<Rect, ImageBrush>(new Rect(0, 0, bi2.PixelWidth, bi2.PixelHeight),
+                                new ImageBrush(bi2))));
+                    }
+                }
+                else
+                {
+                    _StartBackgrounds.Add(false,
+                            (new KeyValuePair<Rect, ImageBrush>(new Rect(0, 0, bi2.PixelWidth, bi2.PixelHeight),
+                                new ImageBrush(bi2))));
+                }
             }
 
         }
@@ -553,19 +628,18 @@ namespace POESKillTree.SkillTreeFiles
                 brNot.ImageSource = PImageNot;
                 sizeNot = new Size(PImageNot.PixelWidth, PImageNot.PixelHeight);
 
-
-                var brKS = new ImageBrush();
-                brKS.Stretch = Stretch.Uniform;
-                BitmapImage PImageKr = _assets[NodeBackgrounds["keystone"]].PImage;
-                brKS.ImageSource = PImageKr;
-                Size sizeKs = new Size(PImageKr.PixelWidth, PImageKr.PixelHeight);
-
                 var brNotH = new ImageBrush();
                 brNotH.Stretch = Stretch.Uniform;
                 BitmapImage PImageNotH = _assets[NodeBackgroundsActive["notable"]].PImage;
                 brNotH.ImageSource = PImageNotH;
                 Size sizeNotH = new Size(PImageNotH.PixelWidth, PImageNotH.PixelHeight);
 
+
+                var brKS = new ImageBrush();
+                brKS.Stretch = Stretch.Uniform;
+                BitmapImage PImageKr = _assets[NodeBackgrounds["keystone"]].PImage;
+                brKS.ImageSource = PImageKr;
+                Size sizeKs = new Size(PImageKr.PixelWidth, PImageKr.PixelHeight);
 
                 var brKSH = new ImageBrush();
                 brKSH.Stretch = Stretch.Uniform;
@@ -585,12 +659,26 @@ namespace POESKillTree.SkillTreeFiles
                 brNormA.ImageSource = PImageNormA;
                 Size isizeNormA = new Size(PImageNormA.PixelWidth, PImageNormA.PixelHeight);
 
+                var brJewel = new ImageBrush();
+                brJewel.Stretch = Stretch.Uniform;
+                BitmapImage PImageJewel = _assets[NodeBackgrounds["jewel"]].PImage;
+                brJewel.ImageSource = PImageJewel;
+                Size isSizeJewel = new Size(PImageJewel.PixelWidth, PImageJewel.PixelHeight);
+
+                var brJewelA = new ImageBrush();
+                brJewelA.Stretch = Stretch.Uniform;
+                BitmapImage PImageJewelA = _assets[NodeBackgroundsActive["jewel"]].PImage;
+                brJewelA.ImageSource = PImageJewelA;
+                Size isSizeJewelA = new Size(PImageJewelA.PixelWidth, PImageJewelA.PixelHeight);
+
                 NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(isizeNorm, brNorm));
                 NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(isizeNormA, brNormA));
                 NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(sizeKs, brKS));
                 NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(sizeNot, brNot));
                 NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(sizeKsH, brKSH));
                 NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(sizeNotH, brNotH));
+                NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(isSizeJewel, brJewel));
+                NodeSurroundBrush.Add(new KeyValuePair<Size, ImageBrush>(isSizeJewelA, brJewelA));
 
 
 
@@ -634,11 +722,29 @@ namespace POESKillTree.SkillTreeFiles
             picHighlights = new DrawingVisual();
             picSkillSurroundHighlight = new DrawingVisual();
             picPathHighlight = new DrawingVisual();
+            picJewelHighlight = new DrawingVisual();
         }
 
         public static void ClearAssets()
         {
             _Initialized = false;
+        }
+
+        public void DrawJewelHighlight(SkillNode node)
+        {
+            const int thickness = 10;
+            var radiusPen = new Pen(Brushes.Cyan, thickness);
+
+            const int smallRadius = 800 - thickness / 2;
+            const int mediumRadius = 1200 - thickness / 2;
+            const int largeRadius = 1500 - thickness / 2;
+
+            using (DrawingContext dc = picJewelHighlight.RenderOpen())
+            {
+                dc.DrawEllipse(null, radiusPen, node.Position, smallRadius, smallRadius);
+                dc.DrawEllipse(null, radiusPen, node.Position, mediumRadius, mediumRadius);
+                dc.DrawEllipse(null, radiusPen, node.Position, largeRadius, largeRadius);
+            }
         }
     }
 }

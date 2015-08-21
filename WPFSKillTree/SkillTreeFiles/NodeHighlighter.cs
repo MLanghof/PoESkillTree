@@ -10,11 +10,22 @@ namespace POESKillTree.SkillTreeFiles
         [Flags]
         public enum HighlightState
         {
-            FromSearch = 1, FromAttrib = 2, FromNode = 4,
-            All = FromSearch | FromAttrib | FromNode
+            FromSearch = 1, FromAttrib = 2, Checked = 4, Crossed = 8, FromHover = 16,
+            Highlights = FromSearch | FromAttrib | FromHover,
+            Tags = Checked | Crossed,
+            All = FromSearch | FromAttrib | Checked | Crossed | FromHover
         }
 
         public Dictionary<SkillNode, HighlightState> nodeHighlights = new Dictionary<SkillNode, HighlightState>();
+
+        public bool NodeHasHighlights(SkillNode node, HighlightState flags)
+        {
+            if (nodeHighlights.ContainsKey(node))
+            {
+                return nodeHighlights[node].HasFlag(flags);
+            }
+            return false;
+        }
 
         public void ToggleHighlightNode(SkillNode node, HighlightState toggleFlags)
         {
@@ -46,7 +57,7 @@ namespace POESKillTree.SkillTreeFiles
             }
         }
 
-        public void HighlightNodes(List<SkillNode> nodes, HighlightState newFlags)
+        public void HighlightNodes(IEnumerable<SkillNode> nodes, HighlightState newFlags)
         {
             foreach (SkillNode node in nodes)
                 HighlightNode(node, newFlags);
@@ -61,10 +72,24 @@ namespace POESKillTree.SkillTreeFiles
                 UnhighlightNode(node, removeFlags);
         }
 
-        public void ReplaceHighlights(List<SkillNode> newNodes, HighlightState replaceFlags)
+        public void ReplaceHighlights(IEnumerable<SkillNode> newNodes, HighlightState replaceFlags)
         {
             UnhighlightAllNodes(replaceFlags);
             HighlightNodes(newNodes, replaceFlags);
+        }
+
+        /// <summary>
+        /// For all nodes that have at least one of the ifFlags:
+        /// Removes flags not in ifFlags, adds newFlags.
+        /// </summary>
+        public void HighlightNodesIf(HighlightState newFlags, HighlightState ifFlags)
+        {
+            var pairs = nodeHighlights.Where(pair => (pair.Value & ifFlags) > 0).ToArray();
+            foreach (var pair in pairs)
+            {
+                nodeHighlights[pair.Key] &= ifFlags;
+                nodeHighlights[pair.Key] |= newFlags;
+            }
         }
     }
 }

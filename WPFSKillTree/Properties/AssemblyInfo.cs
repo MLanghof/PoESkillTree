@@ -7,12 +7,8 @@ using System.Windows;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("WPFSKillTree")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("PoESkillTree")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("WPFSKillTree")]
-[assembly: AssemblyCopyright("Copyright © 2012-2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -41,6 +37,10 @@ using System.Windows;
 )]
 
 // Updated by release.xml. DO NOT MODIFY!
+[assembly: AssemblyDescription("Passive skill tree planner for Path of Exile®")]
+[assembly: AssemblyCompany("PoESkillTree Team")]
+[assembly: AssemblyProduct("PoESkillTree - The Awakening")]
+[assembly: AssemblyCopyright("Copyright © 2012-2015 PoESkillTree Team")]
 [assembly: AssemblyVersion("2.0.0.0")]
-[assembly: AssemblyFileVersion("2.1.3.367")]
-[assembly: AssemblyInformationalVersion("2.1.3")]
+[assembly: AssemblyFileVersion("2.2.2.648")]
+[assembly: AssemblyInformationalVersion("2.2.2")]

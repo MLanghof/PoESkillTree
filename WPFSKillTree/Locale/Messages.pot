@@ -1,0 +1,818 @@
+# Template translations for PoESkillTree.
+# This file is distributed under the same license as the PoESkillTree.
+msgid ""
+msgstr ""
+"Project-Id-Version: PoESkillTree 2.1.3\n"
+"POT-Creation-Date: 2015-01-01 00:00+0000\n"
+"PO-Revision-Date: 2015-01-01 00:00+0000\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: Views\AboutWindow.xaml:12
+msgid "About PoESkillTree"
+msgstr ""
+
+#: Views\AboutWindow.xaml:27
+msgid "Version"
+msgstr ""
+
+#: Views\AboutWindow.xaml:30
+msgid "Updates"
+msgstr ""
+
+#: Views\AboutWindow.xaml:32
+msgid "See the GitHub page for new versions and source code:"
+msgstr ""
+
+#: Views\AboutWindow.xaml:40
+msgid "Authors"
+msgstr ""
+
+#: Views\AboutWindow.xaml:43
+msgid "original author"
+msgstr ""
+
+#: Views\AboutWindow.xaml:58
+msgid "Legal"
+msgstr ""
+
+#: Views\AboutWindow.xaml:61
+msgid "Skill tree assets and images belong to"
+msgstr ""
+
+#: Views\AboutWindow.xaml:62
+msgid "Data used in character calculations are from"
+msgstr ""
+
+#: Views\AboutWindow.xaml:67 Views\DownloadItemsWindow.xaml:29
+#: Views\DownloadStashWindow.xaml:58 Views\HelpWindow.xaml:52
+#: Views\HotkeysWindow.xaml:161 Views\OptimizerControllerWindow.xaml.cs:165
+msgid "Close"
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml:10
+msgid "Download & Import Items"
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml:14
+msgid "Please enter Your Character and Account Name below and click on 'Open in Browser'."
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml:15 Views\DownloadStashWindow.xaml:28
+msgid "This will open a page in your default Web-browser containing the item data."
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml:16
+msgid "Save the page anywhere, then click on 'Load File' and select the saved file."
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml:23 Views\DownloadStashWindow.xaml:20
+#: Views\DownloadStashWindow.xaml:51
+msgid "Open in Browser"
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml:26
+msgid "Load File"
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:12
+msgid "Please enter Account Name and league below and click on 'Open in Browser'."
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:13
+msgid "This will open a page in your default Web-browser containing stash tab list"
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:14
+msgid "Save the page anywhere, then click on 'Load stash tab list' and select the saved file."
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:23
+msgid "Load stash tab list"
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:27
+msgid "Select stash tab and click 'Open in browser' below"
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:29
+msgid "Save the page anywhere, then click on 'Load stash tab' and select the saved file."
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml:54
+msgid "Load stash tab"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:10
+msgid "Build Information"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:14
+msgid "Build name"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:18
+msgid "Build note"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:23
+msgid "Character Information"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:27
+msgid "Character name"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:31
+msgid "Account name"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:35
+msgid "Items data"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml:42
+msgid "OK"
+msgstr ""
+
+#: Views\HelpWindow.xaml:13
+msgid "Help"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:11
+msgid "Hotkeys"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:48
+msgid "Key combination"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:51
+msgid "Function"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:54
+msgid "Shift + Left Click"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:57
+msgid "Zoom In"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:60
+msgid "Ctrl + Left Click"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:63
+msgid "Zoom Out"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:67
+msgid "Scion"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:71
+msgid "Marauder"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:75
+msgid "Ranger"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:79
+msgid "Witch"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:83
+msgid "Duelist"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:87
+msgid "Templar"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:91
+msgid "Shadow"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:95
+msgid "Toggle Attributes sidebar"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:99
+msgid "Toggle Character Sheet sidebar"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:103
+msgid "Toggle Saved Builds sidebar"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:107
+msgid "Copy PoEUrl link to Clipboard"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:111
+msgid "Reset Skill tree"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:114
+msgid "Ctrl + Up/Down"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:117
+msgid "(Saved Builds) Move build up and down"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:121
+msgid "Undo last Skill tree change"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:125
+msgid "Redo last Skill tree change"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:129
+msgid "Save build as"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:132 Views\HotkeysWindow.xaml:137
+#: Views\HotkeysWindow.xaml:143
+msgid "Right Click"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:135
+msgid "(Skill tree) Center Skill tree and reset zoom"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:140
+msgid "(Attributes) Highlight corresponding nodes in Skill tree"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:146
+msgid "(Skill node) Toggle skill node highlighting"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:149
+msgid "Shift + Right Click"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:152
+msgid "(Skill node) Toggle skill node highlighting (reversed)"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:155
+msgid "Shift + Hover"
+msgstr ""
+
+#: Views\HotkeysWindow.xaml:158
+msgid "(Skill node) Highlight similar skill nodes"
+msgstr ""
+
+#: Views\LoadingWindow.xaml:12
+msgid "Download"
+msgstr ""
+
+#: Views\MainWindow.xaml:230
+msgid "_File"
+msgstr ""
+
+#: Views\MainWindow.xaml:234
+msgid "Save _As"
+msgstr ""
+
+#: Views\MainWindow.xaml:242
+msgid "E_xit"
+msgstr ""
+
+#: Views\MainWindow.xaml:252
+msgid "_Edit"
+msgstr ""
+
+#: Views\MainWindow.xaml:256
+msgid "_Undo"
+msgstr ""
+
+#: Views\MainWindow.xaml:264
+msgid "_Redo"
+msgstr ""
+
+#: Views\MainWindow.xaml:272
+msgid "Reset Skill _Tree"
+msgstr ""
+
+#: Views\MainWindow.xaml:292
+msgid "_View"
+msgstr ""
+
+#: Views\MainWindow.xaml:296
+msgid "_Theme"
+msgstr ""
+
+#: Views\MainWindow.xaml:303
+msgctxt "color"
+msgid "Light"
+msgstr ""
+
+#: Views\MainWindow.xaml:308
+msgctxt "color"
+msgid "Dark"
+msgstr ""
+
+#: Views\MainWindow.xaml:343
+msgid "Saved _Builds"
+msgstr ""
+
+#: Views\MainWindow.xaml:348
+msgid "_Attributes"
+msgstr ""
+
+#: Views\MainWindow.xaml:353
+msgid "_Character Sheet"
+msgstr ""
+
+#: Views\MainWindow.xaml:358
+msgid "Skill _Tree Comparison"
+msgstr ""
+
+#: Views\MainWindow.xaml:364
+msgid "_Tools"
+msgstr ""
+
+#: Views\MainWindow.xaml:368
+msgid "Take _Screenshot of Skilled Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:377
+msgid "_Equipment"
+msgstr ""
+
+#: Views\MainWindow.xaml:384
+msgid "_Download & Import Items"
+msgstr ""
+
+#: Views\MainWindow.xaml:392
+msgid "_Download & Import Stash"
+msgstr ""
+
+#: Views\MainWindow.xaml:406
+msgid "_Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:413
+msgid "Skill _Tagged Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:418
+msgid "Un_tag All Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:423
+msgid "_Unhighlight All Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:428
+msgid "_Check-tag highlighted Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:433
+msgid "C_ross-tag highlighted Nodes"
+msgstr ""
+
+#: Views\MainWindow.xaml:439
+msgid "_Program Assets"
+msgstr ""
+
+#: Views\MainWindow.xaml:446
+msgid "_Redownload Skill Tree Assets"
+msgstr ""
+
+#: Views\MainWindow.xaml:461
+msgid "_Help"
+msgstr ""
+
+#: Views\MainWindow.xaml:465
+msgid "_Links"
+msgstr ""
+
+#: Views\MainWindow.xaml:472
+msgid "_Path of Exile Website"
+msgstr ""
+
+#: Views\MainWindow.xaml:479
+msgid "View _Help"
+msgstr ""
+
+#: Views\MainWindow.xaml:487
+msgid "Hot_keys"
+msgstr ""
+
+#: Views\MainWindow.xaml:495
+msgid "Check for _Updates"
+msgstr ""
+
+#: Views\MainWindow.xaml:503
+msgid "_About PoESkillTree"
+msgstr ""
+
+#: Views\MainWindow.xaml:527
+msgid "Reset"
+msgstr ""
+
+#: Views\MainWindow.xaml:579
+msgid "Saved Builds"
+msgstr ""
+
+#: Views\MainWindow.xaml:597
+msgid "Filter:"
+msgstr ""
+
+#: Views\MainWindow.xaml:640
+msgid "Skill tree comparison"
+msgstr ""
+
+#: Views\MainWindow.xaml:649
+msgid "Save"
+msgstr ""
+
+#: Views\MainWindow.xaml:652
+msgid "Save As"
+msgstr ""
+
+#: Views\MainWindow.xaml:655
+msgid "Delete"
+msgstr ""
+
+#: Views\MainWindow.xaml:664
+msgid "Attributes"
+msgstr ""
+
+#: Views\MainWindow.xaml:671
+msgid "Passive Attributes"
+msgstr ""
+
+#: Views\MainWindow.xaml:688
+msgid "Item Attributes"
+msgstr ""
+
+#: Views\MainWindow.xaml:707
+msgid "Total Attributes"
+msgstr ""
+
+#: Views\MainWindow.xaml:743
+msgid "Character Sheet"
+msgstr ""
+
+#: Views\MainWindow.xaml:750 SkillTreeFiles\Compute.cs:2296
+#: Utils\GroupStringConverter.cs:28
+msgid "Defense"
+msgstr ""
+
+#: Views\MainWindow.xaml:767
+msgid "Offense"
+msgstr ""
+
+#: Views\MainWindow.xaml:801
+msgid "Search:"
+msgstr ""
+
+#: Views\MainWindow.xaml:808
+msgid "Skill tree link:"
+msgstr ""
+
+#: Views\MainWindow.xaml:814
+msgid "Load Tree"
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml:10
+msgid "Skill Tree Optimizer"
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml:25
+msgid "Finding optimal Skill tree..."
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml:30
+msgid "Initializing..."
+msgstr ""
+
+#: SkillTreeFiles\Compute.cs:2295
+msgid "Character"
+msgstr ""
+
+#: SkillTreeFiles\SkillTree.cs:606
+msgid "Downloading Skill tree assets"
+msgstr ""
+
+#: SkillTreeFiles\SkillTree.cs:1031
+msgid "Please tag non-skilled nodes by right-clicking them."
+msgstr ""
+
+#: SkillTreeFiles\SkillTreeImporter.cs:74
+#, csharp-format
+msgid "An error occured while attempting to load Skill tree from {0} location."
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:116 SkillTreeFiles\Updater.cs:237
+msgid "Download already in progress"
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:118
+msgid "Download already completed"
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:160 SkillTreeFiles\Updater.cs:353
+#: SkillTreeFiles\Updater.cs:427
+msgid "Download still in progress"
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:163 SkillTreeFiles\Updater.cs:429
+msgid "No package downloaded"
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:261
+msgid "No release found"
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:369
+msgid "Download completed or still in progress"
+msgstr ""
+
+#: SkillTreeFiles\Updater.cs:409
+msgid "The application is not correctly installed"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:16
+msgid "Keystone"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:17
+msgid "Weapon"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:18
+msgid "Charges"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:19
+msgid "Minion"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:20
+msgid "Trap"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:21
+msgid "Totem"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:22
+msgid "Curse"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:23
+msgid "Aura"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:24
+msgid "Critical Strike"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:25
+msgid "Shield"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:26
+msgid "Block"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:27
+msgid "General"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:29
+msgid "Spell"
+msgstr ""
+
+#: Utils\GroupStringConverter.cs:30
+msgid "Core Attributes"
+msgstr ""
+
+#: Utils\Popup.cs:14
+msgid "Question"
+msgstr ""
+
+#: Utils\Popup.cs:20
+msgid "Error"
+msgstr ""
+
+#: Utils\Popup.cs:27
+msgid "Details:"
+msgstr ""
+
+#: Utils\Popup.cs:49
+msgid "Information"
+msgstr ""
+
+#: Utils\Popup.cs:55
+msgid "Warning"
+msgstr ""
+
+#: ViewModels\PoEBuild.cs:31
+#, csharp-format
+msgid "{0}, {1} point used"
+msgid_plural "{0}, {1} points used"
+msgstr[0] ""
+msgstr[1] ""
+
+#: Views\DownloadItemsWindow.xaml.cs:25 Views\DownloadItemsWindow.xaml.cs:31
+msgid "CharacterName"
+msgstr ""
+
+#: Views\DownloadItemsWindow.xaml.cs:26 Views\DownloadItemsWindow.xaml.cs:35
+#: Views\DownloadStashWindow.xaml.cs:54 Views\DownloadStashWindow.xaml.cs:63
+msgid "AccountName"
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml.cs:53 Views\DownloadStashWindow.xaml.cs:59
+msgid "League"
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml.cs:105 Views\DownloadStashWindow.xaml.cs:218
+msgid "An error occurred while attempting to load stash data."
+msgstr ""
+
+#: Views\DownloadStashWindow.xaml.cs:213
+#, csharp-format
+msgid "New tab with {0} items was added to stash"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml.cs:33
+msgid "Not Available"
+msgstr ""
+
+#: Views\FormChooseBuildName.xaml.cs:34
+#, csharp-format
+msgid "Last updated: {0}"
+msgstr ""
+
+#: Views\HelpWindow.xaml.cs:18
+msgid "Help file not found"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:439 Views\MainWindow.xaml.cs:1725
+msgid "An error occurred while copying to Clipboard."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:445
+msgid "The existing Skill tree assets will be deleted and new assets will be downloaded."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:446 Views\MainWindow.xaml.cs:1911
+msgid "Do you want to continue?"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:492
+msgid "An error occurred while downloading assets."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:542
+msgid "Checking for updates"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:547
+msgid "You have the latest version!"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:552
+#, csharp-format
+msgid "An update for {0} ({1}) is available!"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:555
+msgid "The application will be closed when download completes to proceed with the update."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:556
+#, csharp-format
+msgid "A new version {0} is available!"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:559
+msgid "The new version of application will be installed side-by-side with earlier versions."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:563
+msgid "Warning: This is a pre-release, meaning there could be some bugs!"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:567
+msgid "Do you want to download and install the update?"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:568
+msgid "Do you want to download and install the new version?"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:581
+msgid "An error occurred while attempting to contact the update location."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:591
+msgid "Downloading latest version"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:596 Views\MainWindow.xaml.cs:621
+msgid "An error occurred during the download operation."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:634
+msgid "An error occurred while attempting to start the installation."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1146
+msgid "An error occurred while attempting to load item data."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1218
+msgid "Right click to edit"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1289
+msgid "Please select a saved build."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1381
+msgid "An error occurred during a save operation."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1404
+msgid "Resolving shortened tree address"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1460
+msgid "An error occurred while attempting to load Skill tree from URL."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1705
+msgid "Generating PoEUrl of Skill tree"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1711
+msgid "An error occurred while attempting to contact the PoEUrl location."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1721
+msgid "The PoEUrl link has been copied to Clipboard."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1857
+msgid "An error occurred while attempting to load saved builds."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1910
+msgid "The existing Skill Item assets will be deleted and new assets will be downloaded."
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:1931
+msgid "Downloading Item assets"
+msgstr ""
+
+#: Views\MainWindow.xaml.cs:2004
+msgid "Error while downloading assets."
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml.cs:72
+msgid "Cancel"
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml.cs:73
+#: Views\OptimizerControllerWindow.xaml.cs:196
+msgid "Pause"
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml.cs:98
+msgid ""
+"The optimizer was unable to find a conforming tree.\n"
+"Please change skill node tagging and try again."
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml.cs:150
+#: Views\OptimizerControllerWindow.xaml.cs:172
+#, csharp-format
+msgid "Best result so far: {0} additional point spent"
+msgid_plural "Best result so far: {0} additional points spent"
+msgstr[0] ""
+msgstr[1] ""
+
+#: Views\OptimizerControllerWindow.xaml.cs:164
+msgid "Finished!"
+msgstr ""
+
+#: Views\OptimizerControllerWindow.xaml.cs:203
+msgid "Continue"
+msgstr ""
