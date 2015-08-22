@@ -28,8 +28,8 @@ namespace POESKillTree.TreeGenerator.Solver
             get
             {   // TODO adjust
                 return new GeneticAlgorithmParameters(
-                    (int)(0.3 * (SearchSpace.Count < 150 ? 20000.0 / SearchSpace.Count : SearchSpace.Count)),
-                    (int)(2.5 * SearchSpace.Count),
+                    (int)(0.3 * (SearchSpace.Count < 150 ? 40000.0 / SearchSpace.Count : SearchSpace.Count)),
+                    (int)(4.5 * SearchSpace.Count),
                     SearchSpace.Count, 6, 1);
             }
         }
@@ -109,7 +109,7 @@ namespace POESKillTree.TreeGenerator.Solver
 
         private void CreateStartNodes()
         {
-            if (Settings.SubsetTree.Count > 0 || Settings.InitialTree.Count > 0)
+            if (Settings.SubsetTree.Count > 0 || Settings.InitialTree.Count == 0)
             {
                 // if the current tree does not need to be part of the result, only skill the character node
                 StartNodes = SearchGraph.SetStartNodes(new HashSet<ushort> { Tree.GetCharNodeId() });

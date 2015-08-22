@@ -30,9 +30,20 @@
         <DataGrid x:Name="AttrConstraintGrid" Grid.Row="0"
                   ItemsSource="{Binding AttributeConstraints}" AutoGenerateColumns="False"
                   CanUserAddRows="{Binding CanAddAttrConstraints}">
+            <!--DataGrid.Resources>
+                <Style TargetType="{x:Type DataGridCell}">
+                    //<EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridCell_MouseEnter"></>
+                </Style>
+            </-->
             <DataGrid.Columns>
                 
                 <DataGridTemplateColumn Header="Attributes" d:DataContext="{d:DesignInstance model:AttributeConstraint}">
+                    <DataGridTemplateColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <EventSetter Event="MouseEnter" Handler="DataGridCell_MouseEnter"></EventSetter>
+                            <EventSetter Event="MouseLeave" Handler="DataGridCell_MouseLeave"></EventSetter>
+                        </Style>
+                    </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.CellEditingTemplate>
                         <DataTemplate>
                             <ComboBox IsEditable="True" IsTextSearchEnabled="True"
@@ -43,7 +54,7 @@
                                 </ComboBox.Resources>
                                 <ComboBox.GroupStyle>
                                     <GroupStyle>
-                                        <GroupStyle.HeaderTemplate>
+                                            <GroupStyle.HeaderTemplate>
                                             <DataTemplate>
                                                 <TextBlock Foreground="{StaticResource AccentColorBrush}" Text="{Binding Name}"/>
                                             </DataTemplate>
@@ -60,7 +71,7 @@
                                                                            SelectedValue="{utils:DataResourceBinding DataResource={StaticResource SelectedValue}}"/>
                                         </Binding.ValidationRules>
                                     </Binding>
-                                </ComboBox.SelectedValue>
+                                </ComboBox.SelectedValue>   
                             </ComboBox>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
@@ -80,12 +91,18 @@
                 </DataGridTemplateColumn>
 
                 <metroControls:DataGridNumericUpDownColumn Header="Target value" Binding="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Minimum="0" />
-                
+
                 <DataGridTemplateColumn Header="Weight" d:DataContext="{d:DesignInstance model:AttributeConstraint}">
+                    <DataGridTemplateColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <EventSetter Event="MouseEnter" Handler="DataGridCell_MouseEnter"></EventSetter>
+                            <EventSetter Event="MouseLeave" Handler="DataGridCell_MouseLeave"></EventSetter>
+                        </Style>
+                    </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.CellEditingTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
-                                <Slider x:Name="WeightSlider" IsEnabled="True" Width="50"
+                                <Slider x:Name="WeightSlider" IsEnabled="True" Width="101"
                                         TickFrequency="1" IsSnapToTickEnabled="True"
                                         Value="{Binding Weight}" Minimum="{Binding MinWeight}" Maximum="{Binding MaxWeight}"/>
                                 <Label Content="{Binding Value, ElementName=WeightSlider}"/>
@@ -96,14 +113,20 @@
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal"
                                         Visibility="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGridRow}, Path=DataContext, Converter={StaticResource IsNamedObjectVisibilityConverter}}">
-                                <Slider x:Name="WeightSlider" IsEnabled="False" Width="50" Value="{Binding Weight}"/>
+                                <Slider x:Name="WeightSlider" IsEnabled="False" Width="101" Value="{Binding Weight}"/>
                                 <Label Content="{Binding Value, ElementName=WeightSlider}"/>
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                
+
                 <DataGridTemplateColumn d:DataContext="{d:DesignInstance model:AttributeConstraint}">
+                    <DataGridTemplateColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <EventSetter Event="MouseEnter" Handler="DataGridCell_MouseEnter"></EventSetter>
+                            <EventSetter Event="MouseLeave" Handler="DataGridCell_MouseLeave"></EventSetter>
+                        </Style>
+                    </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button x:Name="DeleteRowButton" Content="x"
