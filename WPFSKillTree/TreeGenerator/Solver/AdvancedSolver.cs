@@ -130,7 +130,7 @@ namespace POESKillTree.TreeGenerator.Solver
 
         private void CreateStartNodes()
         {
-            if (Settings.SubsetTree.Count > 0 || Settings.InitialTree.Count > 0)
+            if (Settings.SubsetTree.Count > 0 || Settings.InitialTree.Count == 0)
             {
                 // if the current tree does not need to be part of the result, only skill the character node
                 StartNodes = SearchGraph.SetStartNodes(new HashSet<ushort> { Tree.GetCharNodeId() });

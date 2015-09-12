@@ -42,6 +42,7 @@ namespace POESKillTree.TreeGenerator.ViewModels
             {"Everything else", 15}
         };
 
+<<<<<<< HEAD
         private static readonly Dictionary<string, float> AttributesPerLevel = new Dictionary<string, float>()
         {
             {"+# to maximum Mana", SkillTree.ManaPerLevel},
@@ -57,12 +58,23 @@ namespace POESKillTree.TreeGenerator.ViewModels
             "+# Accuracy Rating",
             "+# to maximum Energy Shield"
         };
+||||||| merged common ancestors
+        public ObservableCollection<string> Attributes { get; }
+=======
+        public ObservableCollection<string> Attributes { get; private set; }
+>>>>>>> origin/treeGen
 
+<<<<<<< HEAD
         #region Presentation
 
         public ObservableCollection<string> Attributes { get; private set; }
 
         public ObservableCollection<AttributeConstraint> AttributeConstraints { get; private set; }
+||||||| merged common ancestors
+        public ObservableCollection<AttributeConstraint> AttributeConstraints { get; }
+=======
+        public ObservableCollection<AttributeConstraint> AttributeConstraints { get; private set;  }
+>>>>>>> origin/treeGen
 
         private bool _canAddAttrConstraints = true;
 
