@@ -1,0 +1,135 @@
+﻿<UserControl x:Class="POESKillTree.TreeGenerator.Views.AdvancedGeneratorTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:viewModels="clr-namespace:POESKillTree.TreeGenerator.ViewModels"
+             xmlns:metroControls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:utils="clr-namespace:POESKillTree.Utils"
+             xmlns:model="clr-namespace:POESKillTree.TreeGenerator.Model"
+             mc:Ignorable="d" 
+             x:Name="Control"
+             d:DesignHeight="300" d:DesignWidth="300" d:DataContext="{d:DesignInstance viewModels:AdvancedTabViewModel}">
+    <Grid>
+        <Grid.Resources>
+            <utils:IsNamedObjectVisibilityConverter x:Key="IsNamedObjectVisibilityConverter"/>
+            <utils:GroupStringConverter x:Key="AttributeGroupConverter"/>
+            <utils:DataResource x:Key="AttributeConstraints" BindingTarget="{Binding AttributeConstraints}" />
+            <CollectionViewSource x:Key="AttributeSource" Source="{Binding Attributes}">
+                <CollectionViewSource.GroupDescriptions>
+                    <PropertyGroupDescription PropertyName="." Converter="{StaticResource AttributeGroupConverter}" />
+                </CollectionViewSource.GroupDescriptions>
+            </CollectionViewSource>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <CheckBox Grid.Row="0" Grid.Column="0" Margin="20,5,10,5" Content="include imported items" IsChecked="{Binding ImportItems}"/>
+        <Button Grid.Row="0" Grid.Column="1" Margin="5" Content="Load from tree" HorizontalAlignment="Center" Command="{Binding LoadAttributesCommand}"/>
+
+        <DataGrid x:Name="AttrConstraintGrid" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                  ItemsSource="{Binding AttributeConstraints}" AutoGenerateColumns="False"
+                  CanUserAddRows="{Binding CanAddAttrConstraints}"
+                  SelectionUnit="Cell" SelectionMode="Single">
+            <DataGrid.Resources>
+                <Style TargetType="{x:Type DataGridCell}">
+                    <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridCell_PreviewMouseLeftButtonDown"/>
+                </Style>
+            </DataGrid.Resources>
+            <DataGrid.Columns>
+                
+                <DataGridTemplateColumn Header="Attributes" d:DataContext="{d:DesignInstance model:AttributeConstraint}">
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <ComboBox IsEditable="True" IsTextSearchEnabled="True"
+                                      ItemsSource="{Binding Source={StaticResource AttributeSource}}">
+                                <ComboBox.Resources>
+                                    <utils:DataResource x:Key="SelectedValue" BindingTarget="{Binding}" />
+                                    <utils:DataResource x:Key="AttributeSelectorFunc" BindingTarget="{Binding AttributeSelectorFunc}"/>
+                                </ComboBox.Resources>
+                                <ComboBox.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.HeaderTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Foreground="{StaticResource AccentColorBrush}" Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </GroupStyle.HeaderTemplate>
+                                    </GroupStyle>
+                                </ComboBox.GroupStyle>
+                                <ComboBox.SelectedValue>
+                                    <Binding Path="Attribute" UpdateSourceTrigger="PropertyChanged">
+                                        <Binding.ValidationRules>
+                                            <utils:NotNullValidationRule Message="No Attribute Selected" ValidatesOnTargetUpdated="True" />
+                                            <utils:DuplicateValidationRule Message="Duplicate Attribute" ValidatesOnTargetUpdated="True"
+                                                                           SelectorFunc="{utils:DataResourceBinding DataResource={StaticResource AttributeSelectorFunc}}"
+                                                                           ValidationSet="{utils:DataResourceBinding DataResource={StaticResource AttributeConstraints}}"
+                                                                           SelectedValue="{utils:DataResourceBinding DataResource={StaticResource SelectedValue}}"/>
+                                        </Binding.ValidationRules>
+                                    </Binding>
+                                </ComboBox.SelectedValue>
+                            </ComboBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <TextBlock.Text>
+                                    <Binding Path="Attribute">
+                                        <Binding.ValidationRules>
+                                            <utils:NotNullValidationRule Message="No Attribute Selected" ValidatesOnTargetUpdated="True" />
+                                        </Binding.ValidationRules>
+                                    </Binding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <metroControls:DataGridNumericUpDownColumn Header="Target" Binding="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Minimum="0" />
+                
+                <DataGridTemplateColumn Header="Weight" d:DataContext="{d:DesignInstance model:AttributeConstraint}">
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Slider x:Name="WeightSlider" IsEnabled="True" Width="100"
+                                        TickFrequency="1" IsSnapToTickEnabled="True"
+                                        Value="{Binding Weight}" Minimum="{Binding MinWeight}" Maximum="{Binding MaxWeight}"/>
+                                <Label Content="{Binding Value, ElementName=WeightSlider}" ContentStringFormat="{}{0}%"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGridRow}, Path=DataContext, Converter={StaticResource IsNamedObjectVisibilityConverter}}">
+                                <Slider x:Name="WeightSlider" IsEnabled="False" Width="100" Value="{Binding Weight}"/>
+                                <Label Content="{Binding Value, ElementName=WeightSlider}" ContentStringFormat="{}{0}%"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+                <DataGridTemplateColumn d:DataContext="{d:DesignInstance model:AttributeConstraint}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button x:Name="DeleteRowButton" Content="x"
+                                    Click="DeleteRowButton_OnClick" MouseLeave="DeleteRowButton_OnMouseLeave"
+                                    Command="{Binding DataContext.RemoveAttributeConstraintCommand, ElementName=Control}"
+                                    CommandParameter="{Binding}"
+                                    Visibility="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGridRow}, Path=DataContext, Converter={StaticResource IsNamedObjectVisibilityConverter}}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                
+            </DataGrid.Columns>
+        </DataGrid>
+        
+    </Grid>
+</UserControl>

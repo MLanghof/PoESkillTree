@@ -73,8 +73,9 @@
     <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
     <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
     <CodeAnalysisFailOnMissingRules>false</CodeAnalysisFailOnMissingRules>
-    <WarningLevel>0</WarningLevel>
+    <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>5</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <OutputPath>bin\Release\</OutputPath>
@@ -208,14 +209,44 @@
     <Compile Include="SkillTreeFiles\SteinerTrees\Graphs.cs" />
     <Compile Include="SkillTreeFiles\SteinerTrees\HeapPriorityQueue.cs" />
     <Compile Include="SkillTreeFiles\SteinerTrees\IPriorityQueue.cs" />
+    <Compile Include="SkillTreeFiles\SteinerTrees\LinkedListPriorityQueue.cs" />
     <Compile Include="SkillTreeFiles\SteinerTrees\MinimalSpanningTree.cs" />
     <Compile Include="SkillTreeFiles\SteinerTrees\PriorityQueueNode.cs" />
     <Compile Include="SkillTreeFiles\SteinerTrees\Steiner.cs" />
     <Compile Include="SkillTreeFiles\SteinerTrees\WeightedSampling.cs" />
     <Compile Include="SkillTreeFiles\Updater.cs" />
+    <Compile Include="TreeGenerator\Model\AttributeConstraint.cs" />
+    <Compile Include="TreeGenerator\Settings\AdvancedSolverSettings.cs" />
+    <Compile Include="TreeGenerator\Settings\AutomatedSolverSettings.cs" />
+    <Compile Include="TreeGenerator\Settings\SolverSettings.cs" />
+    <Compile Include="TreeGenerator\Solver\AbstractSolver.cs" />
+    <Compile Include="TreeGenerator\Solver\AdvancedSolver.cs" />
+    <Compile Include="TreeGenerator\Solver\SteinerSolver.cs" />
+    <Compile Include="TreeGenerator\ViewModels\AdvancedTabViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\AutomatedTabViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\CloseableViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\ControllerViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\GeneratorTabViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\SettingsViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\SteinerTabViewModel.cs" />
+    <Compile Include="TreeGenerator\ViewModels\ViewModelBase.cs" />
+    <Compile Include="TreeGenerator\Views\AdvancedGeneratorTab.xaml.cs">
+      <DependentUpon>AdvancedGeneratorTab.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TreeGenerator\Views\AutomatedGeneratorTab.xaml.cs">
+      <DependentUpon>AutomatedGeneratorTab.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TreeGenerator\Views\SteinerGeneratorTab.xaml.cs">
+      <DependentUpon>SteinerGeneratorTab.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Utils\DataResource.cs" />
+    <Compile Include="Utils\ValidationRules.cs" />
     <Compile Include="Utils\AppData.cs" />
     <Compile Include="Utils\CustomSettingsProvider.cs" />
+    <Compile Include="Utils\DialogCloser.cs" />
+    <Compile Include="Utils\EventHandlerExtensions.cs" />
     <Compile Include="Utils\Helpers.cs" />
+    <Compile Include="Utils\IsNamedObjectVisibilityConverter.cs" />
     <Compile Include="Utils\ItemAssetDownloader.cs" />
     <Compile Include="Utils\Popup.cs" />
     <Compile Include="Utils\StringExtension.cs" />
@@ -239,6 +270,12 @@
     <Compile Include="ViewModels\ListGroupItem.cs" />
     <Compile Include="ViewModels\MetroMessageBoxViewModel.cs" />
     <Compile Include="ViewModels\Converters.cs" />
+    <Compile Include="TreeGenerator\Views\ControllerWindow.xaml.cs">
+      <DependentUpon>ControllerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TreeGenerator\Views\SettingsWindow.xaml.cs">
+      <DependentUpon>SettingsWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\CraftWindow.xaml.cs">
       <DependentUpon>CraftWindow.xaml</DependentUpon>
     </Compile>
@@ -280,6 +317,26 @@
       <DependentUpon>OptimizerControllerWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="TreeGenerator\Views\AdvancedGeneratorTab.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TreeGenerator\Views\ControllerWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TreeGenerator\Views\AutomatedGeneratorTab.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TreeGenerator\Views\SettingsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TreeGenerator\Views\SteinerGeneratorTab.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Compile Include="Views\TabPicker.xaml.cs">
       <DependentUpon>TabPicker.xaml</DependentUpon>
     </Compile>
@@ -484,6 +541,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Antlr3.Runtime.dll" />
+    <Resource Include="TreeGenerator\ideas_todos.txt" />
     <None Include="Data\Equipment\Affixlist.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
