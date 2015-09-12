@@ -131,13 +131,7 @@ namespace POESKillTree.TreeGenerator.Solver
             }
             else
             {
-<<<<<<< HEAD
                 _maxEdgeDistance = leastSolution.SpanningEdges.Max(edge => Distances.GetDistance(edge));
-||||||| merged common ancestors
-                MaxEdgeDistance = LeastSolution.SpanningEdges.Max(edge => Distances.GetDistance(edge));
-=======
-                MaxEdgeDistance = leastSolution.SpanningEdges.Max(edge => Distances.GetDistance(edge));
->>>>>>> origin/treeGen
             }
 
             return leastSolution;

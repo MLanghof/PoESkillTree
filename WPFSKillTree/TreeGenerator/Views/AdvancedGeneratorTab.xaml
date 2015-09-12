@@ -36,7 +36,6 @@
 
         <DataGrid x:Name="AttrConstraintGrid" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                   ItemsSource="{Binding AttributeConstraints}" AutoGenerateColumns="False"
-<<<<<<< HEAD
                   CanUserAddRows="{Binding CanAddAttrConstraints}"
                   SelectionUnit="Cell" SelectionMode="Single">
             <DataGrid.Resources>
@@ -44,18 +43,7 @@
                     <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridCell_PreviewMouseLeftButtonDown"/>
                 </Style>
             </DataGrid.Resources>
-||||||| merged common ancestors
-                  CanUserAddRows="{Binding CanAddAttrConstraints}">
-=======
-                  CanUserAddRows="{Binding CanAddAttrConstraints}">
-            <!--DataGrid.Resources>
-                <Style TargetType="{x:Type DataGridCell}">
-                    //<EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridCell_MouseEnter"></>
-                </Style>
-            </-->
->>>>>>> origin/treeGen
             <DataGrid.Columns>
-                
                 <DataGridTemplateColumn Header="Attributes" d:DataContext="{d:DesignInstance model:AttributeConstraint}">
                     <DataGridTemplateColumn.CellStyle>
                         <Style TargetType="DataGridCell">
@@ -109,16 +97,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-<<<<<<< HEAD
                 <metroControls:DataGridNumericUpDownColumn Header="Target" Binding="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Minimum="0" />
-                
-||||||| merged common ancestors
-                <metroControls:DataGridNumericUpDownColumn Header="Target value" Binding="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Minimum="0" />
-                
-=======
-                <metroControls:DataGridNumericUpDownColumn Header="Target value" Binding="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Minimum="0" />
-
->>>>>>> origin/treeGen
                 <DataGridTemplateColumn Header="Weight" d:DataContext="{d:DesignInstance model:AttributeConstraint}">
                     <DataGridTemplateColumn.CellStyle>
                         <Style TargetType="DataGridCell">
@@ -129,13 +108,7 @@
                     <DataGridTemplateColumn.CellEditingTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
-<<<<<<< HEAD
                                 <Slider x:Name="WeightSlider" IsEnabled="True" Width="100"
-||||||| merged common ancestors
-                                <Slider x:Name="WeightSlider" IsEnabled="True" Width="50"
-=======
-                                <Slider x:Name="WeightSlider" IsEnabled="True" Width="101"
->>>>>>> origin/treeGen
                                         TickFrequency="1" IsSnapToTickEnabled="True"
                                         Value="{Binding Weight}" Minimum="{Binding MinWeight}" Maximum="{Binding MaxWeight}"/>
                                 <Label Content="{Binding Value, ElementName=WeightSlider}" ContentStringFormat="{}{0}%"/>
@@ -144,18 +117,10 @@
                     </DataGridTemplateColumn.CellEditingTemplate>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal"
+                                <StackPanel Orientation="Horizontal"
                                         Visibility="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGridRow}, Path=DataContext, Converter={StaticResource IsNamedObjectVisibilityConverter}}">
-<<<<<<< HEAD
-                                <Slider x:Name="WeightSlider" IsEnabled="False" Width="100" Value="{Binding Weight}"/>
+                                    <Slider x:Name="WeightSlider" IsEnabled="False" Width="100" Value="{Binding Weight}"/>
                                 <Label Content="{Binding Value, ElementName=WeightSlider}" ContentStringFormat="{}{0}%"/>
-||||||| merged common ancestors
-                                <Slider x:Name="WeightSlider" IsEnabled="False" Width="50" Value="{Binding Weight}"/>
-                                <Label Content="{Binding Value, ElementName=WeightSlider}"/>
-=======
-                                <Slider x:Name="WeightSlider" IsEnabled="False" Width="101" Value="{Binding Weight}"/>
-                                <Label Content="{Binding Value, ElementName=WeightSlider}"/>
->>>>>>> origin/treeGen
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
