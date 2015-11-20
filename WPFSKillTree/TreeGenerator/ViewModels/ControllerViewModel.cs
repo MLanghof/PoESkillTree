@@ -243,7 +243,7 @@ namespace POESKillTree.TreeGenerator.ViewModels
             catch (InvalidOperationException)
             {
                 // Show a dialog and close this if the omitted nodes disconnect the tree.
-                Popup.Warning(L10n.Message("The optimizer was unable to find a conforming tree.\nPlease change skill node tagging and try again."));
+                Popup.Warning(L10n.Message("The optimizer was unable to find a conforming tree.\nPlease change skill node tagging and try again.\n\nKeep in mind that Keystones aren't pathed through unless check-tagged!"));
                 // Closes the dialog.
                 Result = false;
                 return false;
