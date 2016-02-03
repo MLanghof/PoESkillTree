@@ -201,6 +201,7 @@
     <Compile Include="SkillTreeFiles\Compute.cs" />
     <Compile Include="SkillTreeFiles\ItemDB.cs" />
     <Compile Include="SkillTreeFiles\NodeHighlighter.cs" />
+    <Compile Include="SkillTreeFiles\NodeUsage.cs" />
     <Compile Include="SkillTreeFiles\SkillIcons.cs" />
     <Compile Include="SkillTreeFiles\SkillNode.cs" />
     <Compile Include="SkillTreeFiles\SkillNodeGroup.cs" />

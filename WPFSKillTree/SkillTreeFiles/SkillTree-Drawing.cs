@@ -119,6 +119,7 @@ namespace POESKillTree.SkillTreeFiles
                 backgroundBrush.Viewport = new Rect(0, 0,
                     6 * backgroundBrush.ImageSource.Width / TRect.Width,
                     6 * backgroundBrush.ImageSource.Height / TRect.Height);
+                backgroundBrush.Opacity = 0.4;
                 drawingContext.DrawRectangle(backgroundBrush, null, TRect);
 
                 var topGradient = new LinearGradientBrush();
@@ -165,6 +166,7 @@ namespace POESKillTree.SkillTreeFiles
                     if (maxr == 0) continue;
                     maxr = maxr > 3 ? 2 : maxr - 1;
                     var maxfac = maxr == 2 ? 2 : 1;
+                    orbitBrush[maxr].Opacity = 0.3;
                     drawingContext.DrawRectangle(orbitBrush[maxr], null,
                         new Rect(
                             skillNodeGroup.Position -
@@ -244,6 +246,7 @@ namespace POESKillTree.SkillTreeFiles
 
         public void DrawHighlights()
         {
+            return;
             var nh = _nodeHighlighter;
             var crossPen = new Pen(Brushes.Red, 20);
             var checkPen = new Pen(Brushes.Lime, 20);
@@ -258,7 +261,7 @@ namespace POESKillTree.SkillTreeFiles
                     if (hs != HighlightState.Crossed && hs != HighlightState.Checked)
                     {
                         Pen hpen;
-                        
+
                         // If it has FromHover, don't mix it with the other highlights.
                         if (hs.HasFlag(HighlightState.FromHover))
                         {
@@ -312,10 +315,30 @@ namespace POESKillTree.SkillTreeFiles
             }
         }
 
+        public void DrawNodeUsage()
+        {
+            var np = NodeUsageProvider;
+            using (DrawingContext dc = picHighlights.RenderOpen())
+            {
+                foreach (var pair in np.nodeFrequencies)
+                {
+                    Brush brush = new SolidColorBrush(Colors.White);
+                    brush.Opacity = pair.Value / np.maxUsage;
+                    //brush.Opacity = 0.5;
+                    Pen hpen = new Pen(brush, 15);
+
+                    dc.DrawEllipse(null, hpen, Skillnodes[pair.Key].Position, 50, 50);
+                }
+            }
+        }
+
         private void DrawLinkBackgroundLayer(List<ushort[]> links)
         {
+            //
             picLinks = new DrawingVisual();
-            var pen2 = new Pen(Brushes.DarkSlateGray, 20f);
+            Brush brush = Brushes.DarkSlateGray.Clone();
+            brush.Opacity = 0.2;
+            var pen2 = new Pen(brush, 20f);
             using (DrawingContext dc = picLinks.RenderOpen())
             {
                 foreach (var nid in links)

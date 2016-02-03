@@ -15,6 +15,7 @@ using POESKillTree.TreeGenerator.ViewModels;
 using POESKillTree.TreeGenerator.Views;
 using ErrorEventArgs = Newtonsoft.Json.Serialization.ErrorEventArgs;
 using HighlightState = POESKillTree.SkillTreeFiles.NodeHighlighter.HighlightState;
+using System.Windows.Media.Imaging;
 
 namespace POESKillTree.SkillTreeFiles
 {
@@ -206,6 +207,8 @@ namespace POESKillTree.SkillTreeFiles
         public HashSet<ushort> SkilledNodes = new HashSet<ushort>();
 
         public HashSet<ushort> HighlightedNodes = new HashSet<ushort>();
+
+        public NodeUsage NodeUsageProvider;
 
         private int _chartype;
         
@@ -430,22 +433,27 @@ namespace POESKillTree.SkillTreeFiles
 
             if (!_Initialized)
             {
+                NodeUsageProvider = new NodeUsage("D:\\Users\\Max\\Desktop\\20160202-all-nodes-by-node-id.csv");
+            }
+
+            if (!_Initialized)
+            {
                 const int padding = 500; //This is to account for jewel range circles. Might need to find a better way to do it.
                 _TRect = new Rect2D(new Vector2D(inTree.min_x * 1.1 - padding, inTree.min_y * 1.1 - padding),
                     new Vector2D(inTree.max_x * 1.1 + padding, inTree.max_y * 1.1 + padding));
             }
 
 
-            InitNodeSurround();//
-
-            DrawNodeSurround();
-            DrawNodeBaseSurround();
+            InitNodeSurround();
             InitSkillIconLayers();
-            DrawSkillIconLayer();
-            DrawBackgroundLayer();
             InitFaceBrushesAndLayer();
-            DrawLinkBackgroundLayer(_links);
+
+            RedrawTree();
+
             InitOtherDynamicLayers();
+
+            DrawNodeUsage();
+
             CreateCombineVisual();
 
             if (_links != null)
@@ -478,6 +486,15 @@ namespace POESKillTree.SkillTreeFiles
 
             _Initialized = true;
         }
+
+        public void RedrawTree()
+        {
+            /*DrawNodeSurround();
+            DrawNodeBaseSurround();
+            DrawSkillIconLayer();*/
+            DrawBackgroundLayer();
+            DrawLinkBackgroundLayer(_links);
+         }
 
         public int Level
         {
@@ -1092,8 +1109,8 @@ namespace POESKillTree.SkillTreeFiles
 
         public void UpdateAvailNodes(bool draw = true)
         {
-            if (draw)
-                UpdateAvailNodesDraw();
+            /*if (draw)
+                UpdateAvailNodesDraw();*/
         }
 
         private HashSet<ushort> GetAvailableNodes(HashSet<ushort> skilledNodes)

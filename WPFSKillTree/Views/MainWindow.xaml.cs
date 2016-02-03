@@ -210,6 +210,7 @@ namespace POESKillTree.Views
             recSkillTree.Width = SkillTree.TRect.Width / SkillTree.TRect.Height * recSkillTree.Height;
             recSkillTree.UpdateLayout();
             recSkillTree.Fill = new VisualBrush(Tree.SkillTreeVisual);
+            //recSkillTree.
 
             _multransform = SkillTree.TRect.Size / new Vector2D(recSkillTree.RenderSize.Width, recSkillTree.RenderSize.Height);
             _addtransform = SkillTree.TRect.TopLeft;
@@ -434,9 +435,10 @@ namespace POESKillTree.Views
 
         private void Menu_ScreenShot(object sender, RoutedEventArgs e)
         {
-            const int maxsize = 3000;
-            Rect2D contentBounds = Tree.picActiveLinks.ContentBounds;
-            contentBounds *= 1.2;
+            const int maxsize = 4000;
+            //Rect2D contentBounds = Tree.picActiveLinks.ContentBounds;
+            Rect2D contentBounds = Tree.picHighlights.ContentBounds;
+            contentBounds *= 1.05;
             if (!double.IsNaN(contentBounds.Width) && !double.IsNaN(contentBounds.Height))
             {
                 double aspect = contentBounds.Width / contentBounds.Height;
@@ -1119,7 +1121,10 @@ namespace POESKillTree.Views
                     Tree.DrawPath(_prePath);
                 }
 
-                var tooltip = node.Name + "\n" + node.attributes.Aggregate((s1, s2) => s1 + "\n" + s2);
+                if (!Tree.NodeUsageProvider.nodeFrequencies.ContainsKey(node.Id))
+                    return;
+                double nodeWeight = Tree.NodeUsageProvider.nodeFrequencies[node.Id];
+                var tooltip = node.Name;
                 if (!(_sToolTip.IsOpen && _lasttooltip == tooltip))
                 {
                     var sp = new StackPanel();
@@ -1130,7 +1135,7 @@ namespace POESKillTree.Views
                     if (_prePath != null)
                     {
                         sp.Children.Add(new Separator());
-                        sp.Children.Add(new TextBlock { Text = "Points to skill node: " + _prePath.Count });
+                        sp.Children.Add(new TextBlock { Text = "Picked: " + nodeWeight + "%" });
                     }
 
                     _sToolTip.Content = sp;
